@@ -77,15 +77,36 @@ The script configures CMake, builds `A3VRCore_x64.dll` and
 
 ```powershell
 .\scripts\package.ps1 -Configuration Release
-Copy-Item -Recurse -Force .\dist\@A3VR "D:\SteamLibrary\steamapps\common\Arma 3\"
+.\scripts\install-a3vr.ps1
 ```
 
-Change the destination to your Arma 3 directory. The package script accepts a
-custom Addon Builder path through `-AddonBuilder`.
+The installer creates `@A3VR_Hybrid` beside the game without touching an
+existing `@A3VR` installation. Pass `-GameDirectory` when Arma is outside the
+common Steam locations. The package script accepts a custom Addon Builder path
+through `-AddonBuilder`.
 
 Start the installed package with `INICIAR_A3VR.cmd`. The launcher searches
 common Steam locations. For a custom library, either pass `-GameDirectory` to
 `scripts\launch-a3vr.ps1` or set `ARMA3_DIR`.
+
+## Play with other mods
+
+Run `INICIAR_A3VR_LAUNCHER.cmd` from `@A3VR_Hybrid`. It starts the OpenXR
+runtime first and then opens the official Arma 3 Launcher. Enable
+`A3VR — Arma 3 Hybrid VR` together with CBA, ACE, RHS or any other desired
+mods, disable BattlEye, and launch the game normally.
+
+Do not enable two A3VR variants in the same preset. In particular, leave the
+older `@A3VR` Stable build disabled when using `@A3VR_Hybrid`.
+
+For a direct command-line launch, pass a semicolon-separated list:
+
+```powershell
+.\scripts\launch-a3vr.ps1 -AdditionalMods "@CBA_A3;@ace;@RHSUSAF"
+```
+
+Absolute Workshop mod paths are also accepted. A3VR is always placed first in
+the resulting `-mod` list.
 
 ## Extension commands
 
