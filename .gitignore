@@ -1,0 +1,31 @@
+# Generated builds and packages
+/build*/
+/dist/
+/.vs/
+/.cache/
+
+# Local development and test artifacts
+/.codex-remote-attachments/
+/backups/
+/releases/
+/video-analysis/
+/third_party/
+/assets/
+/INICIAR_A3VR_CONTROLLER_TEST.cmd
+/INICIAR_A3VR_WEAPON_TEST.cmd
+
+# User-specific Arma and capture settings
+*.Arma3Profile
+*.Arma3Profile.*
+Arma3*.cfg
+*.mp4
+*.jpg
+*.jpeg
+*.png
+
+# Packaged Arma artifacts
+*.pbo
+*.bisign
+*.bikey
+*.dll
+*.exe

@@ -1,0 +1,9 @@
+-noSplash
+-skipIntro
+-world=empty
+-debugCallExtension
+-showScriptErrors
+-window
+-noPause
+-mod=@A3VR
+-init=diag_log ("A3VR_TEST_VERSION:" + ("A3VRCore" callExtension "version")); diag_log ("A3VR_TEST_START:" + ("A3VRCore" callExtension "start")); diag_log ("A3VR_TEST_PROBE:" + ("A3VRCore" callExtension "probe"));
