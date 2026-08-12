@@ -127,6 +127,9 @@ void ControllerInputOutput::update(
         fire_mode_previous_ = state.fire_mode;
         swap_previous_ = state.swap_weapon;
         interact_previous_ = state.interact;
+        vault_previous_ = state.vault;
+        stand_previous_ = state.turn_y > stick_threshold_;
+        crouch_previous_ = state.turn_y < -stick_threshold_;
         return;
     }
 
@@ -140,7 +143,7 @@ void ControllerInputOutput::update(
 
     const bool ui_mode = game_cursor_is_visible();
     const MovementKeys movement = ui_mode ? MovementKeys{} : movement_keys_from_stick(
-        smooth_turn_enabled_ ? 0.0F : state.move_x, state.move_y, stick_threshold_);
+        state.move_x, state.move_y, stick_threshold_);
     set_key('W', movement.forward, forward_);
     set_key('S', movement.backward, backward_);
     set_key('A', movement.left, left_);
@@ -151,10 +154,10 @@ void ControllerInputOutput::update(
     set_mouse_button(MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, state.aim, aim_);
 
     if (smooth_turn_enabled_ && !ui_mode && delta_seconds > 0.0F) {
-        const float magnitude = std::abs(state.move_x);
+        const float magnitude = std::abs(state.turn_x);
         if (magnitude > stick_threshold_) {
             const float normalized = std::copysign(
-                (magnitude - stick_threshold_) / (1.0F - stick_threshold_), state.move_x);
+                (magnitude - stick_threshold_) / (1.0F - stick_threshold_), state.turn_x);
             smooth_turn_residual_ += normalized * smooth_turn_counts_per_second_ * delta_seconds;
             const LONG dx = static_cast<LONG>(std::lround(smooth_turn_residual_));
             smooth_turn_residual_ -= static_cast<float>(dx);
@@ -173,6 +176,11 @@ void ControllerInputOutput::update(
     tap_on_rising_edge(state.reload, reload_previous_, 'R');
     tap_on_rising_edge(state.fire_mode, fire_mode_previous_, 'F');
     tap_on_rising_edge(state.interact, interact_previous_, VK_SPACE);
+    tap_on_rising_edge(state.vault, vault_previous_, 'V');
+    const bool stand = state.turn_y > stick_threshold_;
+    const bool crouch = state.turn_y < -stick_threshold_;
+    tap_on_rising_edge(stand, stand_previous_, 'C');
+    tap_on_rising_edge(crouch, crouch_previous_, 'X');
     if (state.swap_weapon && !swap_previous_) {
         sidearm_selected_ = !sidearm_selected_;
         tap_key(sidearm_selected_ ? '2' : '1');

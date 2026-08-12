@@ -64,7 +64,8 @@ std::string pose_as_sqf(const a3vr::TrackingSnapshot& pose) {
     }
     stream << "]],";
     stream << '[' << pose.controller_move_x << ',' << pose.controller_move_y << ','
-           << pose.controller_buttons << ']';
+           << pose.controller_buttons << ',' << pose.controller_turn_x << ','
+           << pose.controller_turn_y << ']';
     stream << ",[";
     for (std::size_t finger = 0; finger < pose.left_finger_curls.size(); ++finger) {
         if (finger != 0) stream << ',';
@@ -85,7 +86,7 @@ bool launch_server() {
     std::wstring server_path(module_path);
     const auto separator = server_path.find_last_of(L"\\/");
     server_path.resize(separator + 1);
-    server_path += L"A3VRRuntime_v29.exe";
+    server_path += L"A3VRRuntime_v30.exe";
     std::wstring command = L"\"" + server_path + L"\" --parent " +
                            std::to_wstring(GetCurrentProcessId());
     STARTUPINFOW startup{sizeof(startup)};
@@ -110,7 +111,7 @@ std::string dispatch(const std::string_view function) {
         a3vr::TrackingSnapshot snapshot{};
         std::string status;
         if (read_state(snapshot, status)) return status;
-        return launch_server() ? "starting" : "error: cannot launch A3VRRuntime_v29.exe";
+        return launch_server() ? "starting" : "error: cannot launch A3VRRuntime_v30.exe";
     }
     if (function == "status") {
         a3vr::TrackingSnapshot snapshot{};

@@ -43,6 +43,8 @@ struct TrackingSnapshot {
     std::array<float, 5> left_finger_curls{};
     float controller_move_x{};
     float controller_move_y{};
+    float controller_turn_x{};
+    float controller_turn_y{};
     std::uint32_t controller_buttons{};
 };
 

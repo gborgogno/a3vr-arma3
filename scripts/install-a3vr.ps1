@@ -35,7 +35,7 @@ if ((Split-Path -Leaf $Target) -ne "@A3VR_Hybrid") {
 New-Item -ItemType Directory -Force -Path $Target | Out-Null
 $ResolvedTarget = [System.IO.Path]::GetFullPath($Target).TrimEnd('\')
 Get-ChildItem -LiteralPath $Target -Filter "A3VRRuntime_v*.exe" -File -ErrorAction SilentlyContinue |
-    Where-Object { $_.Name -ne "A3VRRuntime_v29.exe" } | ForEach-Object {
+    Where-Object { $_.Name -ne "A3VRRuntime_v30.exe" } | ForEach-Object {
         if ([System.IO.Path]::GetFullPath($_.DirectoryName).TrimEnd('\') -ne $ResolvedTarget) {
             throw "Refusing to remove runtime outside install target: $($_.FullName)"
         }

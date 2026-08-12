@@ -8,6 +8,8 @@ namespace a3vr {
 struct ControllerInputState {
     float move_x{};
     float move_y{};
+    float turn_x{};
+    float turn_y{};
     bool fire{};
     bool aim{};
     bool sprint{};
@@ -15,7 +17,7 @@ struct ControllerInputState {
     bool fire_mode{};
     bool swap_weapon{};
     bool interact{};
-    bool motion_toggle{};
+    bool vault{};
 };
 
 struct MovementKeys {
@@ -52,6 +54,9 @@ private:
     bool fire_mode_previous_{};
     bool swap_previous_{};
     bool interact_previous_{};
+    bool vault_previous_{};
+    bool stand_previous_{};
+    bool crouch_previous_{};
     bool sidearm_selected_{};
     bool smooth_turn_enabled_{};
     float stick_threshold_{0.25F};

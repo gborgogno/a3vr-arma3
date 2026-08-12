@@ -12,8 +12,8 @@ behavior over full room-scale VR interaction.
 
 - OpenXR headset presentation.
 - 6DoF headset tracking through Arma's FreeTrack input path.
-- Native Arma weapon, muzzle, projectiles, effects and optics.
-- Right-controller motion aiming without replacing the weapon model.
+- Generated visual copy of the equipped weapon, including current attachments,
+  aligned to the right controller while native Arma keeps authoritative fire.
 - Left-hand 6DoF pose and controller-derived finger-curl telemetry.
 - Local left-hand calibration skeleton with articulated fingers (F7).
 - Controller movement, firing, aiming, sprint, reload, interaction, fire mode
@@ -36,9 +36,10 @@ controllers where matching OpenXR paths are available.
 | Right grip | Aim down sights |
 | Right A | Reload |
 | Right thumbstick click | Fire mode |
-| Right B | Toggle motion aiming |
-| Left thumbstick vertical | Move forward/backward |
-| Left thumbstick horizontal | Smooth body turn |
+| Right B | Vault / step over |
+| Left thumbstick | Move and strafe |
+| Right thumbstick horizontal | Smooth camera/body turn |
+| Right thumbstick up/down | Stand / crouch |
 | Left thumbstick click | Sprint |
 | Left X / A | Interact |
 | Left Y / B | Switch primary/sidearm |
@@ -47,12 +48,13 @@ controllers where matching OpenXR paths are available.
 | F9 | Toggle motion aiming |
 | F10 | Force/release VR UI cursor mode |
 
-Turn motion aiming off with right B or F9 before using vehicle controls when
-the controller-driven mouse movement is inconvenient.
+F9 remains an emergency keyboard-only motion-aim toggle for vehicle testing.
+Magnified and engine-driven PiP optics still use right grip because Arma only
+activates those render paths through its native optics camera.
 
 ## Architecture
 
-- `A3VRRuntime_v29.exe` owns the OpenXR session, tracks the headset and
+- `A3VRRuntime_v30.exe` owns the OpenXR session, tracks the headset and
   controllers, submits frames and publishes FreeTrack data.
 - `A3VRCore_x64.dll` is loaded by Arma, captures the D3D11 backbuffer and
   exchanges tracking/render data with the runtime through shared memory.
@@ -78,7 +80,7 @@ committed.
 ```
 
 The script configures CMake, builds `A3VRCore_x64.dll` and
-`A3VRRuntime_v29.exe`, then runs the automated math and extension smoke tests.
+`A3VRRuntime_v30.exe`, then runs the automated math and extension smoke tests.
 
 ## Package and install
 

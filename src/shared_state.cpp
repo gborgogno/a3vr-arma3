@@ -5,8 +5,8 @@
 
 namespace a3vr {
 namespace {
-constexpr char mapping_name[] = "Local\\A3VR_Tracking_v29";
-constexpr char mutex_name[] = "Local\\A3VR_Tracking_Mutex_v29";
+constexpr char mapping_name[] = "Local\\A3VR_Tracking_v30";
+constexpr char mutex_name[] = "Local\\A3VR_Tracking_Mutex_v30";
 constexpr std::uint32_t magic = 0x52563341; // A3VR
 }
 
@@ -40,7 +40,7 @@ bool SharedState::create() {
     if (mapping == nullptr || !map(mapping)) return false;
     std::memset(block_, 0, sizeof(Block));
     block_->magic_value = magic;
-    block_->version = 9;
+    block_->version = 10;
     block_->server_pid = GetCurrentProcessId();
     strcpy_s(block_->status, "starting");
     return true;
@@ -50,7 +50,7 @@ bool SharedState::connect() {
     if (block_ != nullptr) return true;
     HANDLE mapping = OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, mapping_name);
     if (mapping == nullptr || !map(mapping)) return false;
-    if (block_->magic_value != magic || block_->version != 9) {
+    if (block_->magic_value != magic || block_->version != 10) {
         close();
         return false;
     }

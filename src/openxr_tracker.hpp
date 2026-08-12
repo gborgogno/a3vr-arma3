@@ -87,7 +87,7 @@ private:
     XrAction reload_action_{XR_NULL_HANDLE};
     XrAction fire_mode_action_{XR_NULL_HANDLE};
     XrAction swap_weapon_action_{XR_NULL_HANDLE};
-    XrAction motion_toggle_action_{XR_NULL_HANDLE};
+    XrAction vault_action_{XR_NULL_HANDLE};
     XrAction interact_action_{XR_NULL_HANDLE};
     std::array<XrPath, 2> hand_paths_{};
     std::array<XrSpace, 2> hand_spaces_{XR_NULL_HANDLE, XR_NULL_HANDLE};
@@ -107,7 +107,6 @@ private:
     ControllerAimOutput controller_aim_{};
     ControllerInputOutput controller_input_{};
     bool recenter_key_down_{};
-    bool motion_toggle_previous_{};
 };
 
 } // namespace a3vr

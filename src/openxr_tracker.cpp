@@ -333,8 +333,8 @@ bool OpenXrTracker::create_actions() {
                        &hand_paths_[1], 1, fire_mode_action_) ||
         !create_action(XR_ACTION_TYPE_BOOLEAN_INPUT, "swap_weapon", "Swap weapon",
                        &hand_paths_[0], 1, swap_weapon_action_) ||
-        !create_action(XR_ACTION_TYPE_BOOLEAN_INPUT, "motion_toggle", "Toggle motion weapon",
-                       &hand_paths_[1], 1, motion_toggle_action_) ||
+        !create_action(XR_ACTION_TYPE_BOOLEAN_INPUT, "vault", "Vault or step over",
+                       &hand_paths_[1], 1, vault_action_) ||
         !create_action(XR_ACTION_TYPE_BOOLEAN_INPUT, "interact", "Interact",
                        &hand_paths_[0], 1, interact_action_)) {
         set_error("cannot create controller actions");
@@ -383,7 +383,7 @@ bool OpenXrTracker::create_actions() {
         {reload_action_, "/user/hand/right/input/a/click"},
         {fire_mode_action_, "/user/hand/right/input/thumbstick/click"},
         {swap_weapon_action_, "/user/hand/left/input/y/click"},
-        {motion_toggle_action_, "/user/hand/right/input/b/click"},
+        {vault_action_, "/user/hand/right/input/b/click"},
         {interact_action_, "/user/hand/left/input/x/click"},
     });
     suggest_profile("/interaction_profiles/valve/index_controller", {
@@ -404,7 +404,7 @@ bool OpenXrTracker::create_actions() {
         {reload_action_, "/user/hand/right/input/a/click"},
         {fire_mode_action_, "/user/hand/right/input/thumbstick/click"},
         {swap_weapon_action_, "/user/hand/left/input/b/click"},
-        {motion_toggle_action_, "/user/hand/right/input/b/click"},
+        {vault_action_, "/user/hand/right/input/b/click"},
         {interact_action_, "/user/hand/left/input/a/click"},
     });
     suggest_profile("/interaction_profiles/microsoft/motion_controller", {
@@ -643,9 +643,24 @@ void OpenXrTracker::run_frame() {
         if (std::abs(component_y) > std::abs(controller_input.move_y)) {
             controller_input.move_y = component_y;
         }
-        // Movement and smooth turning belong exclusively to the left stick.
-        // Reading the right stick here used to let it steal the movement vector,
-        // which made launcher/DLC sessions appear to lose their controller map.
+        float right_x{};
+        float right_y{};
+        XrActionStateGetInfo right_move_info{XR_TYPE_ACTION_STATE_GET_INFO};
+        right_move_info.action = right_move_action_;
+        right_move_info.subactionPath = hand_paths_[1];
+        XrActionStateVector2f right_move_state{XR_TYPE_ACTION_STATE_VECTOR2F};
+        if (xr_ok(xrGetActionStateVector2f(session_, &right_move_info,
+                                           &right_move_state)) &&
+            right_move_state.isActive) {
+            right_x = right_move_state.currentState.x;
+            right_y = right_move_state.currentState.y;
+        }
+        const float right_component_x = read_float(right_move_x_action_, hand_paths_[1]);
+        const float right_component_y = read_float(right_move_y_action_, hand_paths_[1]);
+        if (std::abs(right_component_x) > std::abs(right_x)) right_x = right_component_x;
+        if (std::abs(right_component_y) > std::abs(right_y)) right_y = right_component_y;
+        controller_input.turn_x = right_x;
+        controller_input.turn_y = right_y;
         controller_input.fire = read_float(fire_action_, hand_paths_[1]) >= 0.55F;
         controller_input.aim = read_float(aim_action_, hand_paths_[1]) >= 0.55F;
         controller_input.sprint = read_boolean(sprint_action_, hand_paths_[0]) ||
@@ -653,8 +668,7 @@ void OpenXrTracker::run_frame() {
         controller_input.reload = read_boolean(reload_action_, hand_paths_[1]);
         controller_input.fire_mode = read_boolean(fire_mode_action_, hand_paths_[1]);
         controller_input.swap_weapon = read_boolean(swap_weapon_action_, hand_paths_[0]);
-        controller_input.motion_toggle =
-            read_boolean(motion_toggle_action_, hand_paths_[1]);
+        controller_input.vault = read_boolean(vault_action_, hand_paths_[1]);
         controller_input.interact = read_boolean(interact_action_, hand_paths_[0]);
         const float left_index = std::clamp(
             read_float(left_trigger_action_, hand_paths_[0]), 0.0F, 1.0F);
@@ -667,6 +681,8 @@ void OpenXrTracker::run_frame() {
     }
     next.controller_move_x = controller_input.move_x;
     next.controller_move_y = controller_input.move_y;
+    next.controller_turn_x = controller_input.turn_x;
+    next.controller_turn_y = controller_input.turn_y;
     next.controller_buttons =
         (controller_input.fire ? 1U : 0U) |
         (controller_input.aim ? 2U : 0U) |
@@ -675,11 +691,7 @@ void OpenXrTracker::run_frame() {
         (controller_input.fire_mode ? 16U : 0U) |
         (controller_input.swap_weapon ? 32U : 0U) |
         (controller_input.interact ? 64U : 0U) |
-        (controller_input.motion_toggle ? 128U : 0U);
-    if (controller_input.motion_toggle && !motion_toggle_previous_) {
-        controller_aim_.toggle();
-    }
-    motion_toggle_previous_ = controller_input.motion_toggle;
+        (controller_input.vault ? 128U : 0U);
     controller_aim_.update(next.right_hand, next.head, active_render_frame_.source_pid,
                            recenter_requested);
     controller_input_.update(controller_input, active_render_frame_.source_pid);
@@ -859,7 +871,7 @@ void OpenXrTracker::shutdown() {
         move_y_action_, right_move_action_, right_move_x_action_,
         right_move_y_action_, sprint_action_,
         reload_action_, fire_mode_action_, swap_weapon_action_, interact_action_,
-        motion_toggle_action_,
+        vault_action_,
     };
     for (const XrAction action : actions) {
         if (action != XR_NULL_HANDLE) xrDestroyAction(action);
@@ -875,7 +887,7 @@ void OpenXrTracker::shutdown() {
     right_move_action_ = right_move_x_action_ = right_move_y_action_ = XR_NULL_HANDLE;
     sprint_action_ = reload_action_ = fire_mode_action_ = XR_NULL_HANDLE;
     swap_weapon_action_ = interact_action_ = XR_NULL_HANDLE;
-    motion_toggle_action_ = XR_NULL_HANDLE;
+    vault_action_ = XR_NULL_HANDLE;
     action_set_ = XR_NULL_HANDLE;
     session_ = XR_NULL_HANDLE;
     instance_ = XR_NULL_HANDLE;

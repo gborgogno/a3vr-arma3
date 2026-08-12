@@ -89,7 +89,7 @@ bool preload_extension(const DWORD pid, const std::filesystem::path& path) noexc
 } // namespace
 
 int main(int argc, char** argv) {
-    HANDLE instance_mutex = CreateMutexA(nullptr, TRUE, "Local\\A3VR_Server_Instance_v29");
+    HANDLE instance_mutex = CreateMutexA(nullptr, TRUE, "Local\\A3VR_Server_Instance_v30");
     if (instance_mutex == nullptr || GetLastError() == ERROR_ALREADY_EXISTS) return 0;
 
     DWORD parent_pid = 0;
