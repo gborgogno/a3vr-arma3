@@ -11,7 +11,12 @@ not become a second, conflicting weapon simulation.
 - Publish controller-derived thumb/index/grip curls without changing the
   existing tracking-array indices.
 
-## Phase 2 — visible left hand
+## Phase 2 — visible left hand (v25 calibration proxy)
+
+- Render a local line-art wrist, palm and articulated fingers from live
+  tracking, toggled with F7.
+- Show RGB wrist axes so controller-model alignment can be calibrated without
+  affecting the camera or native weapon.
 
 - Create or license a redistributable P3D hand mesh with a small finger
   skeleton and neutral/point/grip poses.

@@ -8,7 +8,7 @@
 #include <windows.h>
 
 int main(int argc, char** argv) {
-    HANDLE instance_mutex = CreateMutexA(nullptr, TRUE, "Local\\A3VR_Server_Instance_v24");
+    HANDLE instance_mutex = CreateMutexA(nullptr, TRUE, "Local\\A3VR_Server_Instance_v25");
     if (instance_mutex == nullptr || GetLastError() == ERROR_ALREADY_EXISTS) return 0;
 
     DWORD parent_pid = 0;

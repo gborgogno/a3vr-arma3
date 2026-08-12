@@ -15,6 +15,8 @@ class CfgFunctions {
             file = "\a3vr\functions";
             class postInit { postInit = 1; };
             class trackingLoop {};
+            class drawLeftHand {};
+            class leftHandDebugLoop {};
         };
     };
 };

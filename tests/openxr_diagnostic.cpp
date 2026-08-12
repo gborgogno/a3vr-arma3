@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
             *output << "status: " << status << '\n';
             previous = status;
         }
-        if (status == "tracking") {
+        if (status.starts_with("tracking")) {
             tracking = true;
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
             *output << "calling pose\n";

@@ -15,7 +15,7 @@ if ([string]::IsNullOrWhiteSpace($BuildDirectory)) {
 $ModDirectory = Join-Path $ProjectRoot "dist\@A3VR_Hybrid"
 $AddonDestination = Join-Path $ModDirectory "addons"
 $NativeDll = Join-Path $BuildDirectory "$Configuration\A3VRCore_x64.dll"
-$ServerExe = Join-Path $BuildDirectory "$Configuration\A3VRRuntime_v24.exe"
+$ServerExe = Join-Path $BuildDirectory "$Configuration\A3VRRuntime_v25.exe"
 
 if (-not (Test-Path -LiteralPath $NativeDll)) {
     throw "Build A3VR first: .\scripts\build.ps1 -Configuration $Configuration"
@@ -56,6 +56,7 @@ $ObsoleteArtifacts = @(
     "A3VRRuntime_v21.exe",
     "A3VRRuntime_v22.exe",
     "A3VRRuntime_v23.exe",
+    "A3VRRuntime_v24.exe",
     "A3VRIPC_x64.dll",
     "A3VRHost.exe"
 )

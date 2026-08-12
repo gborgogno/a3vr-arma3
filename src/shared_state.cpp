@@ -5,8 +5,8 @@
 
 namespace a3vr {
 namespace {
-constexpr char mapping_name[] = "Local\\A3VR_Tracking_v24";
-constexpr char mutex_name[] = "Local\\A3VR_Tracking_Mutex_v24";
+constexpr char mapping_name[] = "Local\\A3VR_Tracking_v25";
+constexpr char mutex_name[] = "Local\\A3VR_Tracking_Mutex_v25";
 constexpr std::uint32_t magic = 0x52563341; // A3VR
 }
 

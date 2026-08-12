@@ -15,6 +15,7 @@ behavior over full room-scale VR interaction.
 - Native Arma weapon, muzzle, projectiles, effects and optics.
 - Right-controller motion aiming without replacing the weapon model.
 - Left-hand 6DoF pose and controller-derived finger-curl telemetry.
+- Local left-hand calibration skeleton with articulated fingers (F7).
 - Controller movement, firing, aiming, sprint, reload, interaction, fire mode
   and weapon switching.
 - Automatic runtime cleanup when Arma exits.
@@ -39,6 +40,7 @@ controllers where matching OpenXR paths are available.
 | Left X / A | Interact |
 | Left Y / B | Switch primary/sidearm |
 | F8 | Recenter head tracking |
+| F7 | Toggle the left-hand calibration skeleton |
 | F9 | Toggle motion aiming |
 
 Turn motion aiming off with right B or F9 before using vehicle controls when
@@ -46,7 +48,7 @@ the controller-driven mouse movement is inconvenient.
 
 ## Architecture
 
-- `A3VRRuntime_v24.exe` owns the OpenXR session, tracks the headset and
+- `A3VRRuntime_v25.exe` owns the OpenXR session, tracks the headset and
   controllers, submits frames and publishes FreeTrack data.
 - `A3VRCore_x64.dll` is loaded by Arma, captures the D3D11 backbuffer and
   exchanges tracking/render data with the runtime through shared memory.
@@ -72,7 +74,7 @@ committed.
 ```
 
 The script configures CMake, builds `A3VRCore_x64.dll` and
-`A3VRRuntime_v24.exe`, then runs the automated math and extension smoke tests.
+`A3VRRuntime_v25.exe`, then runs the automated math and extension smoke tests.
 
 ## Package and install
 
@@ -124,6 +126,11 @@ The `pose` result keeps its existing fields and appends a five-value
 left-finger curl array ordered thumb, index, middle, ring and pinky.
 Controller-derived curls are an approximation; true independent joints
 require optical hand tracking.
+
+The F7 hand is deliberately a line-art calibration proxy. It verifies the
+wrist position, axes, scale and finger inputs without replacing or moving
+Arma's weapon. The small red, green and blue lines show hand right, forward
+and up respectively. A skinned P3D glove replaces this proxy after calibration.
 
 Head rotation defaults to a `0.65` gain. Advanced users can override it by
 setting `A3VR_HEAD_ROTATION_GAIN` between `0.10` and `1.50` before launching.
