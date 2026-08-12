@@ -67,6 +67,8 @@ private:
     bool session_running_{false};
     bool sbs_mode_{false};
     bool mono_mode_{false};
+    float mono_screen_width_{9.5F};
+    float mono_screen_distance_{5.0F};
 
     XrActionSet action_set_{XR_NULL_HANDLE};
     XrAction hand_pose_action_{XR_NULL_HANDLE};

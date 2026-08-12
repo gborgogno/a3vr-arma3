@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <initializer_list>
 #include <sstream>
@@ -131,6 +132,19 @@ bool OpenXrTracker::initialize() {
                 std::string_view(stereo_mode) == "sbs";
     mono_mode_ = stereo_mode_size > 0 && stereo_mode_size < std::size(stereo_mode) &&
                  std::string_view(stereo_mode) == "mono";
+    const auto read_screen_value = [](const char* name, const float fallback,
+                                      const float minimum, const float maximum) {
+        char value[32]{};
+        const DWORD size = GetEnvironmentVariableA(
+            name, value, static_cast<DWORD>(std::size(value)));
+        if (size == 0 || size >= std::size(value)) return fallback;
+        const float parsed = std::strtof(value, nullptr);
+        return parsed >= minimum && parsed <= maximum ? parsed : fallback;
+    };
+    mono_screen_width_ = read_screen_value(
+        "A3VR_MONO_SCREEN_WIDTH", 9.5F, 4.0F, 20.0F);
+    mono_screen_distance_ = read_screen_value(
+        "A3VR_MONO_SCREEN_DISTANCE", 5.0F, 2.0F, 20.0F);
     (void)freetrack_.open();
     set_status("initializing: enumerate extensions");
     std::uint32_t extension_count = 0;
@@ -787,13 +801,17 @@ void OpenXrTracker::run_frame() {
                 // A single compositor-owned quad is projected through both
                 // lenses. This avoids binocular mismatch from submitting two
                 // nominally identical projection views with different optical
-                // centers. Five metres keeps convergence effectively distant;
-                // the large 16:9 surface fills the headset field of view.
+                // centers. Keep the whole game image inside a typical headset
+                // field of view instead of extending past both lens edges.
                 mono_quad.space = view_space_;
                 mono_quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
                 mono_quad.pose.orientation = {0.0F, 0.0F, 0.0F, 1.0F};
-                mono_quad.pose.position = {0.0F, 0.0F, -5.0F};
-                mono_quad.size = {25.4F, 14.3F};
+                mono_quad.pose.position = {0.0F, 0.0F, -mono_screen_distance_};
+                const float aspect = active_render_frame_.width > 0
+                    ? static_cast<float>(active_render_frame_.height) /
+                      static_cast<float>(active_render_frame_.width)
+                    : 9.0F / 16.0F;
+                mono_quad.size = {mono_screen_width_, mono_screen_width_ * aspect};
                 mono_quad.subImage.swapchain = eye_swapchains_[0].handle;
                 mono_quad.subImage.imageRect.offset = {0, 0};
                 mono_quad.subImage.imageRect.extent = {
