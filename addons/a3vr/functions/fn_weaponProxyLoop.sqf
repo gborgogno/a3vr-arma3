@@ -8,6 +8,8 @@ if (!hasInterface) exitWith {};
 
 A3VR_weaponCamera = objNull;
 A3VR_weaponProxy = objNull;
+A3VR_weaponAttachmentObjects = [];
+A3VR_weaponAttachmentSlots = [];
 A3VR_weaponProxyClass = "";
 A3VR_weaponProxySignature = "";
 A3VR_weaponProxyComposite = false;
@@ -53,6 +55,11 @@ A3VR_fnc_weaponToWorld = {
 };
 
 A3VR_fnc_deleteWeaponProxy = {
+    {
+        if (!isNull _x) then { deleteVehicle _x; };
+    } forEach A3VR_weaponAttachmentObjects;
+    A3VR_weaponAttachmentObjects = [];
+    A3VR_weaponAttachmentSlots = [];
     if (!isNull A3VR_weaponProxy) then { deleteVehicle A3VR_weaponProxy; };
     A3VR_weaponProxy = objNull;
     A3VR_weaponProxyClass = "";
@@ -99,6 +106,10 @@ A3VR_fnc_createWeaponProxy = {
     if (!isNull A3VR_weaponProxy) then {
         A3VR_weaponProxy hideSelection ["zasleh", true];
         A3VR_weaponProxy hideSelection ["zasleh2", true];
+        {
+            A3VR_weaponProxy setObjectTexture [_forEachIndex, _x];
+        } forEach getArray
+            (configFile >> "CfgWeapons" >> _weaponClass >> "hiddenSelectionsTextures");
         A3VR_weaponProxyClass = _weaponClass;
         A3VR_weaponProxySignature = _signature;
         private _bounds = boundingBoxReal A3VR_weaponProxy;
@@ -127,9 +138,59 @@ A3VR_fnc_createWeaponProxy = {
         A3VR_weaponLocalRight = vectorNormalized
             (A3VR_weaponLocalForward vectorCrossProduct A3VR_weaponLocalUp);
         A3VR_weaponLocalMuzzle = +_muzzle;
+
+        // Recreate the accessory proxies that createSimpleObject does not
+        // instantiate. Slot position and orientation come from the weapon's
+        // actual proxy selections, so vanilla and modded accessories follow
+        // the same attachment data as the selected loadout.
+        private _availableSelections = selectionNames A3VR_weaponProxy;
+        private _attachmentSpecs = [
+            [_weaponState # 1, "weapon_slots\muzzle"],
+            [_weaponState # 2, "weapon_slots\side"],
+            [_weaponState # 3, "weapon_slots\top"],
+            [_weaponState # 6, "weapon_slots\underbarrel"]
+        ];
+        {
+            _x params ["_attachmentClass", "_slotNeedle"];
+            if !(_attachmentClass isEqualTo "") then {
+                private _slotSelection = "";
+                {
+                    if ((toLower _x) find _slotNeedle >= 0) exitWith {
+                        _slotSelection = _x;
+                    };
+                } forEach _availableSelections;
+                private _attachmentModel = getText
+                    (configFile >> "CfgWeapons" >> _attachmentClass >> "model");
+                if (_attachmentModel isEqualTo "") then {
+                    _attachmentModel = getText
+                        (configFile >> "CfgWeapons" >> _attachmentClass >>
+                        "ItemInfo" >> "model");
+                };
+                if !(_slotSelection isEqualTo "" ||
+                    {_attachmentModel isEqualTo ""}) then {
+                    if ((_attachmentModel select [0, 1]) isEqualTo "\") then {
+                        _attachmentModel = _attachmentModel select [1];
+                    };
+                    private _attachment = createSimpleObject
+                        [_attachmentModel, _position, true];
+                    if (!isNull _attachment) then {
+                        {
+                            _attachment setObjectTexture [_forEachIndex, _x];
+                        } forEach getArray
+                            (configFile >> "CfgWeapons" >> _attachmentClass >>
+                            "hiddenSelectionsTextures");
+                        A3VR_weaponAttachmentObjects pushBack _attachment;
+                        A3VR_weaponAttachmentSlots pushBack
+                            [_attachment, _slotSelection, _attachmentClass];
+                    };
+                };
+            };
+        } forEach _attachmentSpecs;
         diag_log format ["[A3VR] VR weapon class=%1 direct model=%2 barrel=%3 muzzle=%4 bounds=%5 attachments=%6",
             _weaponClass, _model, A3VR_weaponLocalForward,
             A3VR_weaponLocalMuzzle, _bounds, _weaponState];
+        diag_log format ["[A3VR] VR accessory proxies=%1",
+            A3VR_weaponAttachmentSlots apply {[_x # 1, _x # 2]}];
     };
 };
 
@@ -237,10 +298,27 @@ A3VR_weaponEachFrame = addMissionEventHandler ["EachFrame", {
             _flash setLightBrightness 0.7;
             _flash setLightUseFlare true;
             _flash setLightFlareSize 0.12;
-            [_flash] spawn {
-                params ["_light"];
+            private _smoke = "#particlesource" createVehicleLocal
+                (ASLToAGL A3VR_weaponMuzzlePosition);
+            _smoke setParticleParams [
+                ["\A3\data_f\ParticleEffects\Universal\Universal", 16, 12, 13, 0],
+                "", "Billboard", 1, 0.32, [0, 0, 0],
+                (A3VR_weaponMuzzleDirection vectorMultiply 1.4),
+                0, 1.27, 1.0, 0.08, [0.018, 0.07, 0.16],
+                [[0.82, 0.82, 0.82, 0.30], [0.58, 0.58, 0.58, 0.12],
+                 [0.42, 0.42, 0.42, 0]],
+                [1000], 0.03, 0.03, "", "", _smoke, 0, false, -1, [],
+                A3VR_weaponMuzzleDirection
+            ];
+            _smoke setParticleRandom
+                [0.05, [0.012, 0.012, 0.012], [0.18, 0.18, 0.18],
+                 0.15, 0.015, [0.05, 0.05, 0.05, 0.04], 0, 0];
+            _smoke setDropInterval 0.006;
+            [_flash, _smoke] spawn {
+                params ["_light", "_smokeSource"];
                 uiSleep 0.035;
                 if (!isNull _light) then { deleteVehicle _light; };
+                if (!isNull _smokeSource) then { deleteVehicle _smokeSource; };
                 if (!isNull A3VR_weaponProxy) then {
                     A3VR_weaponProxy hideSelection ["zasleh", true];
                     A3VR_weaponProxy hideSelection ["zasleh2", true];
@@ -322,6 +400,28 @@ A3VR_weaponEachFrame = addMissionEventHandler ["EachFrame", {
         A3VR_weaponProxy setVectorDirAndUp
             [vectorNormalized _modelDirection, vectorNormalized _modelUp];
         A3VR_weaponProxy setPosWorld _weaponPosition;
+        {
+            _x params ["_attachment", "_slotSelection"];
+            if (!isNull _attachment) then {
+                private _slotPosition = A3VR_weaponProxy selectionPosition
+                    [_slotSelection, 0, "AveragePoint"];
+                private _slotBasis = A3VR_weaponProxy selectionVectorDirAndUp
+                    [_slotSelection, 0];
+                private _slotDirection = A3VR_weaponProxy vectorModelToWorldVisual
+                    (_slotBasis # 0);
+                private _slotUp = A3VR_weaponProxy vectorModelToWorldVisual
+                    (_slotBasis # 1);
+                if (vectorMagnitude _slotDirection < 0.1 ||
+                    {vectorMagnitude _slotUp < 0.1}) then {
+                    _slotDirection = vectorDirVisual A3VR_weaponProxy;
+                    _slotUp = vectorUpVisual A3VR_weaponProxy;
+                };
+                _attachment setVectorDirAndUp
+                    [vectorNormalized _slotDirection, vectorNormalized _slotUp];
+                _attachment setPosWorld
+                    (A3VR_weaponProxy modelToWorldVisualWorld _slotPosition);
+            };
+        } forEach A3VR_weaponAttachmentSlots;
         A3VR_weaponMuzzlePosition =
             A3VR_weaponProxy modelToWorldVisualWorld A3VR_weaponLocalMuzzle;
         A3VR_weaponMuzzleDirection = +_worldHandDirection;

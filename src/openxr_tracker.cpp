@@ -132,6 +132,19 @@ bool OpenXrTracker::initialize() {
                 std::string_view(stereo_mode) == "sbs";
     mono_mode_ = stereo_mode_size > 0 && stereo_mode_size < std::size(stereo_mode) &&
                  std::string_view(stereo_mode) == "mono";
+    const auto read_screen_value = [](const char* name, const float fallback,
+                                      const float minimum, const float maximum) {
+        char value[32]{};
+        const DWORD size = GetEnvironmentVariableA(
+            name, value, static_cast<DWORD>(std::size(value)));
+        if (size == 0 || size >= std::size(value)) return fallback;
+        const float parsed = std::strtof(value, nullptr);
+        return parsed >= minimum && parsed <= maximum ? parsed : fallback;
+    };
+    mono_screen_width_ = read_screen_value(
+        "A3VR_MONO_SCREEN_WIDTH", 17.5F, 4.0F, 22.0F);
+    mono_screen_distance_ = read_screen_value(
+        "A3VR_MONO_SCREEN_DISTANCE", 5.0F, 2.0F, 20.0F);
     (void)freetrack_.open();
     set_status("initializing: enumerate extensions");
     std::uint32_t extension_count = 0;
@@ -739,16 +752,17 @@ void OpenXrTracker::run_frame() {
         {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW},
     }};
     XrCompositionLayerProjection projection{XR_TYPE_COMPOSITION_LAYER_PROJECTION};
+    XrCompositionLayerQuad mono_quad{XR_TYPE_COMPOSITION_LAYER_QUAD};
     const XrCompositionLayerBaseHeader* submitted_layer = nullptr;
     bool submitted = false;
     const bool has_render_source = (sbs_mode_ || mono_mode_) && frame_state.shouldRender &&
-        layer_views_valid &&
+        (!sbs_mode_ || layer_views_valid) &&
         update_shared_render_source() && game_texture_;
     const bool acquired = has_render_source && (!game_texture_mutex_ ||
         game_texture_mutex_->AcquireSync(1, 0) == S_OK);
     if (acquired) {
         bool copied_all = true;
-        const std::size_t target_count = eye_swapchains_.size();
+        const std::size_t target_count = mono_mode_ ? 1U : eye_swapchains_.size();
         for (std::size_t index = 0; index < target_count; ++index) {
             auto& eye = eye_swapchains_[index];
             std::uint32_t image_index{};
@@ -779,29 +793,52 @@ void OpenXrTracker::run_frame() {
                                                 &source_box);
             XrSwapchainImageReleaseInfo release{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
             (void)xrReleaseSwapchainImage(eye.handle, &release);
-            auto& projection_view = projection_views[index];
-            projection_view.pose.orientation = {0.0F, 0.0F, 0.0F, 1.0F};
-            // Mono uses one optical centre for both eyes, so the raster is
-            // binocularly identical but still fills each headset projection.
-            // SBS retains the physical per-eye offsets that carry depth.
-            projection_view.pose.position = mono_mode_
-                ? XrVector3f{0.0F, 0.0F, 0.0F}
-                : XrVector3f{layer_views[index].pose.position.x, 0.0F, 0.0F};
-            projection_view.fov = common_layer_fov;
-            projection_view.subImage.swapchain = eye.handle;
-            projection_view.subImage.imageRect.offset = {0, 0};
-            projection_view.subImage.imageRect.extent = {
-                static_cast<std::int32_t>(eye_width),
-                static_cast<std::int32_t>(active_render_frame_.height)};
-            projection_view.subImage.imageArrayIndex = 0;
+            if (!mono_mode_) {
+                auto& projection_view = projection_views[index];
+                projection_view.pose.orientation = {0.0F, 0.0F, 0.0F, 1.0F};
+                projection_view.pose.position = {
+                    layer_views[index].pose.position.x, 0.0F, 0.0F};
+                projection_view.fov = common_layer_fov;
+                projection_view.subImage.swapchain = eye.handle;
+                projection_view.subImage.imageRect.offset = {0, 0};
+                projection_view.subImage.imageRect.extent = {
+                    static_cast<std::int32_t>(eye_width),
+                    static_cast<std::int32_t>(active_render_frame_.height)};
+                projection_view.subImage.imageArrayIndex = 0;
+            }
         }
         if (game_texture_mutex_) game_texture_mutex_->ReleaseSync(0);
         if (copied_all) {
-            projection.space = view_space_;
-            projection.viewCount = static_cast<std::uint32_t>(projection_views.size());
-            projection.views = projection_views.data();
-            submitted_layer = reinterpret_cast<const XrCompositionLayerBaseHeader*>(
-                &projection);
+            if (mono_mode_) {
+                // One compositor-owned surface is shared by both eyes. This is
+                // the comfort path that avoids the divergent optical centres
+                // and eye strain of two independent projection submissions.
+                // 17.5 at 5.0 covers typical peripheral lens edges without the
+                // extreme scale of the former 25.4-wide panel.
+                mono_quad.space = view_space_;
+                mono_quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+                mono_quad.pose.orientation = {0.0F, 0.0F, 0.0F, 1.0F};
+                mono_quad.pose.position = {0.0F, 0.0F, -mono_screen_distance_};
+                const float aspect = active_render_frame_.width > 0
+                    ? static_cast<float>(active_render_frame_.height) /
+                      static_cast<float>(active_render_frame_.width)
+                    : 9.0F / 16.0F;
+                mono_quad.size = {mono_screen_width_, mono_screen_width_ * aspect};
+                mono_quad.subImage.swapchain = eye_swapchains_[0].handle;
+                mono_quad.subImage.imageRect.offset = {0, 0};
+                mono_quad.subImage.imageRect.extent = {
+                    static_cast<std::int32_t>(active_render_frame_.width),
+                    static_cast<std::int32_t>(active_render_frame_.height)};
+                mono_quad.subImage.imageArrayIndex = 0;
+                submitted_layer = reinterpret_cast<const XrCompositionLayerBaseHeader*>(
+                    &mono_quad);
+            } else {
+                projection.space = view_space_;
+                projection.viewCount = static_cast<std::uint32_t>(projection_views.size());
+                projection.views = projection_views.data();
+                submitted_layer = reinterpret_cast<const XrCompositionLayerBaseHeader*>(
+                    &projection);
+            }
             submitted = true;
         }
     }

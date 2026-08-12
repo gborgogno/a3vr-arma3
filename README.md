@@ -146,8 +146,9 @@ and up respectively. A skinned P3D glove replaces this proxy after calibration.
 
 Head rotation defaults to a comfort-oriented `0.48` gain. Advanced users can override it by
 setting `A3VR_HEAD_ROTATION_GAIN` between `0.10` and `1.50` before launching.
-Comfort mono is submitted as a full-lens OpenXR projection with one shared optical centre.
-It therefore covers peripheral vision without introducing binocular parallax between eyes.
+Comfort mono is submitted once as a compositor-owned surface shared by both eyes. The
+surface defaults to `17.5` units wide at a distance of `5.0`, covering typical peripheral
+lens edges while avoiding independent eye projections and their binocular discomfort.
 
 ## Limitations and safety
 
