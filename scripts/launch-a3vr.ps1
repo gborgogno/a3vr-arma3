@@ -46,8 +46,6 @@ if (Get-Process -Name "A3VRRuntime_v*" -ErrorAction SilentlyContinue) {
 }
 
 $env:A3VR_STEREO_MODE = "mono"
-$env:A3VR_MONO_SCREEN_WIDTH = "13.0"
-$env:A3VR_MONO_SCREEN_DISTANCE = "5.0"
 $env:A3VR_CONTROLLER_AIM = "1"
 $env:A3VR_CONTROLLER_COUNTS_PER_RADIAN = "650"
 $env:A3VR_HEAD_ROTATION_GAIN = "0.48"

@@ -12,6 +12,10 @@ A3VR_weaponProxyClass = "";
 A3VR_weaponProxySignature = "";
 A3VR_weaponProxyComposite = false;
 A3VR_weaponModelAxis = "Y";
+A3VR_weaponLocalForward = [0, 1, 0];
+A3VR_weaponLocalRight = [1, 0, 0];
+A3VR_weaponLocalUp = [0, 0, 1];
+A3VR_weaponLocalMuzzle = [0, 0.5, 0];
 A3VR_weaponHiddenUnit = objNull;
 A3VR_weaponActive = false;
 A3VR_weaponCalibrated = false;
@@ -55,6 +59,10 @@ A3VR_fnc_deleteWeaponProxy = {
     A3VR_weaponProxySignature = "";
     A3VR_weaponProxyComposite = false;
     A3VR_weaponModelAxis = "Y";
+    A3VR_weaponLocalForward = [0, 1, 0];
+    A3VR_weaponLocalRight = [1, 0, 0];
+    A3VR_weaponLocalUp = [0, 0, 1];
+    A3VR_weaponLocalMuzzle = [0, 0.5, 0];
 };
 
 A3VR_fnc_cleanupWeaponProxy = {
@@ -79,23 +87,14 @@ A3VR_fnc_createWeaponProxy = {
     call A3VR_fnc_deleteWeaponProxy;
     if (_weaponClass isEqualTo "") exitWith {};
 
-    if (count _weaponState >= 7) then {
-        A3VR_weaponProxy = createVehicle ["WeaponHolderSimulated",
-            ASLToAGL _position, [], 0, "CAN_COLLIDE"];
-        if (!isNull A3VR_weaponProxy) then {
-            A3VR_weaponProxy allowDamage false;
-            A3VR_weaponProxy enableSimulation false;
-            A3VR_weaponProxy addWeaponWithAttachmentsCargoGlobal [_weaponState, 1];
-            A3VR_weaponProxyComposite = true;
-        };
-    };
-
-    if (isNull A3VR_weaponProxy) then {
-        private _model = getText (configFile >> "CfgWeapons" >> _weaponClass >> "model");
-        if !(_model isEqualTo "") then {
-            if ((_model select [0, 1]) isEqualTo "\") then { _model = _model select [1]; };
-            A3VR_weaponProxy = createSimpleObject [_model, _position, true];
-        };
+    // WeaponHolderSimulated rotates its cargo model in a private display
+    // transform and reports the holder's multi-metre bounds. That made both
+    // the barrel and calculated muzzle sit 90 degrees away from the controller.
+    // Use the weapon P3D itself so its memory points define the real barrel.
+    private _model = getText (configFile >> "CfgWeapons" >> _weaponClass >> "model");
+    if !(_model isEqualTo "") then {
+        if ((_model select [0, 1]) isEqualTo "\") then { _model = _model select [1]; };
+        A3VR_weaponProxy = createSimpleObject [_model, _position, true];
     };
     if (!isNull A3VR_weaponProxy) then {
         A3VR_weaponProxy hideSelection ["zasleh", true];
@@ -105,15 +104,32 @@ A3VR_fnc_createWeaponProxy = {
         private _bounds = boundingBoxReal A3VR_weaponProxy;
         private _minimum = _bounds # 0;
         private _maximum = _bounds # 1;
-        private _extentX = (_maximum # 0) - (_minimum # 0);
-        private _extentY = (_maximum # 1) - (_minimum # 1);
-        // WeaponHolderSimulated's own bounding box does not describe the
-        // displayed cargo weapon. Its cargo weapon points along local -X.
-        A3VR_weaponModelAxis = if (A3VR_weaponProxyComposite) then {"X"} else {
-            ["Y", "X"] select (_extentX > _extentY * 1.15)
+        private _muzzle = A3VR_weaponProxy selectionPosition "usti hlavne";
+        private _barrelBack = A3VR_weaponProxy selectionPosition "konec hlavne";
+        private _barrel = _muzzle vectorDiff _barrelBack;
+        if (vectorMagnitude _barrel < 0.05) then {
+            private _extentX = (_maximum # 0) - (_minimum # 0);
+            private _extentY = (_maximum # 1) - (_minimum # 1);
+            A3VR_weaponModelAxis = ["Y", "X"] select (_extentX > _extentY * 1.15);
+            _barrel = if (A3VR_weaponModelAxis isEqualTo "X")
+                then {[1, 0, 0]} else {[0, 1, 0]};
+            _muzzle = if (A3VR_weaponModelAxis isEqualTo "X")
+                then {[_maximum # 0, 0, 0]} else {[0, _maximum # 1, 0]};
         };
-        diag_log format ["[A3VR] VR weapon class=%1 axis=%2 bounds=%3 attachments=%4",
-            _weaponClass, A3VR_weaponModelAxis, _bounds, _weaponState];
+        A3VR_weaponLocalForward = vectorNormalized _barrel;
+        private _localUpCandidate = [0, 0, 1] vectorDiff
+            (A3VR_weaponLocalForward vectorMultiply
+            ([0, 0, 1] vectorDotProduct A3VR_weaponLocalForward));
+        if (vectorMagnitude _localUpCandidate < 0.1) then {
+            _localUpCandidate = [0, 1, 0];
+        };
+        A3VR_weaponLocalUp = vectorNormalized _localUpCandidate;
+        A3VR_weaponLocalRight = vectorNormalized
+            (A3VR_weaponLocalForward vectorCrossProduct A3VR_weaponLocalUp);
+        A3VR_weaponLocalMuzzle = +_muzzle;
+        diag_log format ["[A3VR] VR weapon class=%1 direct model=%2 barrel=%3 muzzle=%4 bounds=%5 attachments=%6",
+            _weaponClass, _model, A3VR_weaponLocalForward,
+            A3VR_weaponLocalMuzzle, _bounds, _weaponState];
     };
 };
 
@@ -212,6 +228,24 @@ A3VR_weaponEachFrame = addMissionEventHandler ["EachFrame", {
                 ((A3VR_weaponMuzzleDirection vectorMultiply _speed) vectorAdd
                 (velocity _unit));
             _projectile setShotParents [vehicle _unit, _unit];
+            A3VR_weaponProxy hideSelection ["zasleh", false];
+            A3VR_weaponProxy hideSelection ["zasleh2", false];
+            private _flash = "#lightpoint" createVehicleLocal
+                (ASLToAGL A3VR_weaponMuzzlePosition);
+            _flash setLightColor [1.0, 0.55, 0.18];
+            _flash setLightAmbient [0.15, 0.05, 0.01];
+            _flash setLightBrightness 0.7;
+            _flash setLightUseFlare true;
+            _flash setLightFlareSize 0.12;
+            [_flash] spawn {
+                params ["_light"];
+                uiSleep 0.035;
+                if (!isNull _light) then { deleteVehicle _light; };
+                if (!isNull A3VR_weaponProxy) then {
+                    A3VR_weaponProxy hideSelection ["zasleh", true];
+                    A3VR_weaponProxy hideSelection ["zasleh2", true];
+                };
+            };
         }];
         A3VR_weaponActive = true;
         A3VR_weaponCalibrated = false;
@@ -272,30 +306,24 @@ A3VR_weaponEachFrame = addMissionEventHandler ["EachFrame", {
             call A3VR_fnc_createWeaponProxy;
     };
     if (!isNull A3VR_weaponProxy) then {
-        private _modelDirection = if (A3VR_weaponModelAxis isEqualTo "Y") then {
-            _worldHandDirection
-        } else {
-            // Most Arma weapon P3Ds point their barrel along local -X. Choose
-            // local Y so that -X lands exactly on the controller aim vector.
-            vectorNormalized (_worldHandDirection vectorCrossProduct _weaponUp)
-        };
-        A3VR_weaponProxy setVectorDirAndUp [_modelDirection, _weaponUp];
+        private _worldRight = vectorNormalized
+            (_worldHandDirection vectorCrossProduct _weaponUp);
+        // Build a complete local-to-world basis from the P3D's actual barrel
+        // memory points. This maps the barrel to the controller ray regardless
+        // of whether a modded weapon was authored along local X, Y or -Y.
+        private _modelDirection =
+            (_worldRight vectorMultiply (A3VR_weaponLocalRight # 1)) vectorAdd
+            (_worldHandDirection vectorMultiply (A3VR_weaponLocalForward # 1)) vectorAdd
+            (_weaponUp vectorMultiply (A3VR_weaponLocalUp # 1));
+        private _modelUp =
+            (_worldRight vectorMultiply (A3VR_weaponLocalRight # 2)) vectorAdd
+            (_worldHandDirection vectorMultiply (A3VR_weaponLocalForward # 2)) vectorAdd
+            (_weaponUp vectorMultiply (A3VR_weaponLocalUp # 2));
+        A3VR_weaponProxy setVectorDirAndUp
+            [vectorNormalized _modelDirection, vectorNormalized _modelUp];
         A3VR_weaponProxy setPosWorld _weaponPosition;
-        private _bounds = boundingBoxReal A3VR_weaponProxy;
-        private _minimum = _bounds # 0;
-        private _maximum = _bounds # 1;
-        private _extentX = (_maximum # 0) - (_minimum # 0);
-        private _extentY = (_maximum # 1) - (_minimum # 1);
-        if (!A3VR_weaponProxyComposite && {(_extentX max _extentY) > 0.2}) then {
-            A3VR_weaponModelAxis = ["Y", "X"] select
-                (_extentX > _extentY * 1.15);
-        };
-        private _length = ((_maximum # 0) - (_minimum # 0)) max
-            (((_maximum # 1) - (_minimum # 1)) max
-            ((_maximum # 2) - (_minimum # 2)));
-        if (_length < 0.2) then { _length = 1.0; };
-        A3VR_weaponMuzzlePosition = _weaponPosition vectorAdd
-            (_worldHandDirection vectorMultiply (_length * 0.55));
+        A3VR_weaponMuzzlePosition =
+            A3VR_weaponProxy modelToWorldVisualWorld A3VR_weaponLocalMuzzle;
         A3VR_weaponMuzzleDirection = +_worldHandDirection;
     };
 
