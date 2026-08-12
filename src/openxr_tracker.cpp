@@ -142,7 +142,7 @@ bool OpenXrTracker::initialize() {
         return parsed >= minimum && parsed <= maximum ? parsed : fallback;
     };
     mono_screen_width_ = read_screen_value(
-        "A3VR_MONO_SCREEN_WIDTH", 9.5F, 4.0F, 20.0F);
+        "A3VR_MONO_SCREEN_WIDTH", 13.0F, 4.0F, 20.0F);
     mono_screen_distance_ = read_screen_value(
         "A3VR_MONO_SCREEN_DISTANCE", 5.0F, 2.0F, 20.0F);
     (void)freetrack_.open();

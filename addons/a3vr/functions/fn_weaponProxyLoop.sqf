@@ -29,6 +29,8 @@ A3VR_weaponHasMagnifiedOptic = false;
 A3VR_weaponMuzzlePosition = [0, 0, 0];
 A3VR_weaponMuzzleDirection = [0, 1, 0];
 A3VR_weaponFiredHandler = -1;
+A3VR_weaponLastButtons = 0;
+A3VR_weaponLastForcedShot = 0;
 
 A3VR_fnc_weaponToReference = {
     params ["_vector"];
@@ -105,7 +107,11 @@ A3VR_fnc_createWeaponProxy = {
         private _maximum = _bounds # 1;
         private _extentX = (_maximum # 0) - (_minimum # 0);
         private _extentY = (_maximum # 1) - (_minimum # 1);
-        A3VR_weaponModelAxis = ["Y", "X"] select (_extentX > _extentY * 1.15);
+        // WeaponHolderSimulated's own bounding box does not describe the
+        // displayed cargo weapon. Its cargo weapon points along local -X.
+        A3VR_weaponModelAxis = if (A3VR_weaponProxyComposite) then {"X"} else {
+            ["Y", "X"] select (_extentX > _extentY * 1.15)
+        };
         diag_log format ["[A3VR] VR weapon class=%1 axis=%2 bounds=%3 attachments=%4",
             _weaponClass, A3VR_weaponModelAxis, _bounds, _weaponState];
     };
@@ -280,7 +286,7 @@ A3VR_weaponEachFrame = addMissionEventHandler ["EachFrame", {
         private _maximum = _bounds # 1;
         private _extentX = (_maximum # 0) - (_minimum # 0);
         private _extentY = (_maximum # 1) - (_minimum # 1);
-        if ((_extentX max _extentY) > 0.2) then {
+        if (!A3VR_weaponProxyComposite && {(_extentX max _extentY) > 0.2}) then {
             A3VR_weaponModelAxis = ["Y", "X"] select
                 (_extentX > _extentY * 1.15);
         };
@@ -292,6 +298,44 @@ A3VR_weaponEachFrame = addMissionEventHandler ["EachFrame", {
             (_worldHandDirection vectorMultiply (_length * 0.55));
         A3VR_weaponMuzzleDirection = +_worldHandDirection;
     };
+
+    // A script camera does not route every native mouse/button binding back
+    // to the soldier. Drive the authoritative Arma actions from the OpenXR
+    // bit mask while leaving locomotion and smooth turn on native W/A/S/D and
+    // mouse input.
+    private _previousButtons = A3VR_weaponLastButtons;
+    private _firePressed = (((floor (_buttons / 1)) mod 2) isEqualTo 1);
+    private _reloadPressed = (((floor (_buttons / 8)) mod 2) isEqualTo 1);
+    private _modePressed = (((floor (_buttons / 16)) mod 2) isEqualTo 1);
+    private _swapPressed = (((floor (_buttons / 32)) mod 2) isEqualTo 1);
+    private _reloadWasPressed = (((floor (_previousButtons / 8)) mod 2) isEqualTo 1);
+    private _modeWasPressed = (((floor (_previousButtons / 16)) mod 2) isEqualTo 1);
+    private _swapWasPressed = (((floor (_previousButtons / 32)) mod 2) isEqualTo 1);
+
+    if (_firePressed && {diag_tickTime - A3VR_weaponLastForcedShot > 0.035}) then {
+        private _nativeState = weaponState player;
+        if (count _nativeState >= 3) then {
+            player forceWeaponFire [_nativeState # 1, _nativeState # 2];
+            A3VR_weaponLastForcedShot = diag_tickTime;
+        };
+    };
+    if (_reloadPressed && {!_reloadWasPressed}) then { reload player; };
+    if (_modePressed && {!_modeWasPressed}) then {
+        private _weapon = currentWeapon player;
+        private _muzzle = currentMuzzle player;
+        private _modes = getArray (configFile >> "CfgWeapons" >> _weapon >> "modes");
+        private _currentMode = currentWeaponMode player;
+        if (count _modes > 1) then {
+            private _next = ((_modes find _currentMode) + 1) mod (count _modes);
+            player selectWeapon [_weapon, _muzzle, _modes # _next];
+        };
+    };
+    if (_swapPressed && {!_swapWasPressed}) then {
+        private _target = if (currentWeapon player isEqualTo handgunWeapon player)
+            then {primaryWeapon player} else {handgunWeapon player};
+        if !(_target isEqualTo "") then { player selectWeapon _target; };
+    };
+    A3VR_weaponLastButtons = _buttons;
 }];
 
 addMissionEventHandler ["MPEnded", { call A3VR_fnc_cleanupWeaponProxy; }];

@@ -79,6 +79,12 @@ ControllerInputOutput::ControllerInputOutput() {
         static_cast<DWORD>(std::size(enabled_value)));
     enabled_ = enabled_size > 0 && std::string_view(enabled_value) == "1";
 
+    char proxy_value[8]{};
+    const DWORD proxy_size = GetEnvironmentVariableA(
+        "A3VR_PROXY_WEAPON", proxy_value,
+        static_cast<DWORD>(std::size(proxy_value)));
+    proxy_weapon_actions_ = proxy_size > 0 && std::string_view(proxy_value) == "1";
+
     char threshold_value[32]{};
     const DWORD threshold_size = GetEnvironmentVariableA(
         "A3VR_CONTROLLER_STICK_THRESHOLD", threshold_value,
@@ -150,6 +156,9 @@ void ControllerInputOutput::update(
     set_key('D', movement.right, right_);
     set_key(VK_LSHIFT, state.sprint && (movement.forward || movement.backward ||
                                        movement.left || movement.right), sprint_);
+    // Keep native fire available for the magnified-optic fallback, where the
+    // script camera is temporarily released. In proxy view SQF handles the
+    // same trigger because Arma ignores this mouse event there.
     set_mouse_button(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, state.fire, fire_);
     set_mouse_button(MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, state.aim, aim_);
 
@@ -173,15 +182,20 @@ void ControllerInputOutput::update(
         }
     }
 
-    tap_on_rising_edge(state.reload, reload_previous_, 'R');
-    tap_on_rising_edge(state.fire_mode, fire_mode_previous_, 'F');
+    if (!proxy_weapon_actions_) {
+        tap_on_rising_edge(state.reload, reload_previous_, 'R');
+        tap_on_rising_edge(state.fire_mode, fire_mode_previous_, 'F');
+    } else {
+        reload_previous_ = state.reload;
+        fire_mode_previous_ = state.fire_mode;
+    }
     tap_on_rising_edge(state.interact, interact_previous_, VK_SPACE);
     tap_on_rising_edge(state.vault, vault_previous_, 'V');
     const bool stand = state.turn_y > stick_threshold_;
     const bool crouch = state.turn_y < -stick_threshold_;
     tap_on_rising_edge(stand, stand_previous_, 'C');
     tap_on_rising_edge(crouch, crouch_previous_, 'X');
-    if (state.swap_weapon && !swap_previous_) {
+    if (!proxy_weapon_actions_ && state.swap_weapon && !swap_previous_) {
         sidearm_selected_ = !sidearm_selected_;
         tap_key(sidearm_selected_ ? '2' : '1');
     }

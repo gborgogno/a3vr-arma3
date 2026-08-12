@@ -43,6 +43,7 @@ public:
 
 private:
     bool enabled_{};
+    bool proxy_weapon_actions_{};
     bool forward_{};
     bool backward_{};
     bool left_{};
