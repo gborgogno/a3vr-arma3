@@ -14,6 +14,8 @@ behavior over full room-scale VR interaction.
 - 6DoF headset tracking through Arma's FreeTrack input path.
 - Generated visual copy of the equipped weapon, including current attachments,
   aligned to the right controller while native Arma keeps authoritative fire.
+- Automatic weapon-model axis detection prevents X/Y-oriented models from
+  appearing sideways; F8 recalibrates its spatial basis with head tracking.
 - Left-hand 6DoF pose and controller-derived finger-curl telemetry.
 - Local left-hand calibration skeleton with articulated fingers (F7).
 - Controller movement, firing, aiming, sprint, reload, interaction, fire mode

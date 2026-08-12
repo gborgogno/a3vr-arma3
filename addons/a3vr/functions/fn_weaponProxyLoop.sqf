@@ -11,6 +11,7 @@ A3VR_weaponProxy = objNull;
 A3VR_weaponProxyClass = "";
 A3VR_weaponProxySignature = "";
 A3VR_weaponProxyComposite = false;
+A3VR_weaponModelAxis = "Y";
 A3VR_weaponHiddenUnit = objNull;
 A3VR_weaponActive = false;
 A3VR_weaponCalibrated = false;
@@ -51,6 +52,7 @@ A3VR_fnc_deleteWeaponProxy = {
     A3VR_weaponProxyClass = "";
     A3VR_weaponProxySignature = "";
     A3VR_weaponProxyComposite = false;
+    A3VR_weaponModelAxis = "Y";
 };
 
 A3VR_fnc_cleanupWeaponProxy = {
@@ -98,12 +100,24 @@ A3VR_fnc_createWeaponProxy = {
         A3VR_weaponProxy hideSelection ["zasleh2", true];
         A3VR_weaponProxyClass = _weaponClass;
         A3VR_weaponProxySignature = _signature;
-        diag_log format ["[A3VR] VR weapon class=%1 attachments=%2",
-            _weaponClass, _weaponState];
+        private _bounds = boundingBoxReal A3VR_weaponProxy;
+        private _minimum = _bounds # 0;
+        private _maximum = _bounds # 1;
+        private _extentX = (_maximum # 0) - (_minimum # 0);
+        private _extentY = (_maximum # 1) - (_minimum # 1);
+        A3VR_weaponModelAxis = ["Y", "X"] select (_extentX > _extentY * 1.15);
+        diag_log format ["[A3VR] VR weapon class=%1 axis=%2 bounds=%3 attachments=%4",
+            _weaponClass, A3VR_weaponModelAxis, _bounds, _weaponState];
     };
 };
 
 waitUntil { uiSleep 0.1; !isNull findDisplay 46 };
+(findDisplay 46) displayAddEventHandler ["KeyDown", {
+    params ["", "_key"];
+    // DIK_F8: recalibrate both the native tracker and this visual weapon basis.
+    if (_key isEqualTo 66) then { A3VR_weaponCalibrated = false; };
+    false
+}];
 
 A3VR_weaponEachFrame = addMissionEventHandler ["EachFrame", {
     private _sample = missionNamespace getVariable ["A3VR_tracking", []];
@@ -252,16 +266,24 @@ A3VR_weaponEachFrame = addMissionEventHandler ["EachFrame", {
             call A3VR_fnc_createWeaponProxy;
     };
     if (!isNull A3VR_weaponProxy) then {
-        private _modelDirection = if (A3VR_weaponProxyComposite) then {
+        private _modelDirection = if (A3VR_weaponModelAxis isEqualTo "Y") then {
             _worldHandDirection
         } else {
-            vectorNormalized (_worldHandDirection vectorCrossProduct _worldHandUp)
+            // Most Arma weapon P3Ds point their barrel along local -X. Choose
+            // local Y so that -X lands exactly on the controller aim vector.
+            vectorNormalized (_worldHandDirection vectorCrossProduct _weaponUp)
         };
         A3VR_weaponProxy setVectorDirAndUp [_modelDirection, _weaponUp];
         A3VR_weaponProxy setPosWorld _weaponPosition;
         private _bounds = boundingBoxReal A3VR_weaponProxy;
         private _minimum = _bounds # 0;
         private _maximum = _bounds # 1;
+        private _extentX = (_maximum # 0) - (_minimum # 0);
+        private _extentY = (_maximum # 1) - (_minimum # 1);
+        if ((_extentX max _extentY) > 0.2) then {
+            A3VR_weaponModelAxis = ["Y", "X"] select
+                (_extentX > _extentY * 1.15);
+        };
         private _length = ((_maximum # 0) - (_minimum # 0)) max
             (((_maximum # 1) - (_minimum # 1)) max
             ((_maximum # 2) - (_minimum # 2)));
