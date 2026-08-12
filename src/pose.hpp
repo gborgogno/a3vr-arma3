@@ -40,6 +40,7 @@ struct TrackingSnapshot {
     TrackedPose left_hand{};
     TrackedPose right_hand{};
     std::array<EyeView, 2> eyes{};
+    std::array<float, 5> left_finger_curls{};
     float controller_move_x{};
     float controller_move_y{};
     std::uint32_t controller_buttons{};

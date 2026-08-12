@@ -293,6 +293,12 @@ bool OpenXrTracker::create_actions() {
                        &hand_paths_[1], 1, fire_action_) ||
         !create_action(XR_ACTION_TYPE_FLOAT_INPUT, "aim", "Aim down sights",
                        &hand_paths_[1], 1, aim_action_) ||
+        !create_action(XR_ACTION_TYPE_FLOAT_INPUT, "left_trigger", "Left index curl",
+                       &hand_paths_[0], 1, left_trigger_action_) ||
+        !create_action(XR_ACTION_TYPE_FLOAT_INPUT, "left_squeeze", "Left grip curl",
+                       &hand_paths_[0], 1, left_squeeze_action_) ||
+        !create_action(XR_ACTION_TYPE_BOOLEAN_INPUT, "left_thumb_touch", "Left thumb touch",
+                       &hand_paths_[0], 1, left_thumb_touch_action_) ||
         !create_action(XR_ACTION_TYPE_VECTOR2F_INPUT, "move", "Move",
                        &hand_paths_[0], 1, move_action_) ||
         !create_action(XR_ACTION_TYPE_FLOAT_INPUT, "move_x", "Move horizontal",
@@ -350,6 +356,9 @@ bool OpenXrTracker::create_actions() {
         {hand_pose_action_, "/user/hand/right/input/aim/pose"},
         {fire_action_, "/user/hand/right/input/trigger/value"},
         {aim_action_, "/user/hand/right/input/squeeze/value"},
+        {left_trigger_action_, "/user/hand/left/input/trigger/value"},
+        {left_squeeze_action_, "/user/hand/left/input/squeeze/value"},
+        {left_thumb_touch_action_, "/user/hand/left/input/thumbstick/touch"},
         {move_action_, "/user/hand/left/input/thumbstick"},
         {move_x_action_, "/user/hand/left/input/thumbstick/x"},
         {move_y_action_, "/user/hand/left/input/thumbstick/y"},
@@ -368,6 +377,9 @@ bool OpenXrTracker::create_actions() {
         {hand_pose_action_, "/user/hand/right/input/aim/pose"},
         {fire_action_, "/user/hand/right/input/trigger/value"},
         {aim_action_, "/user/hand/right/input/squeeze/value"},
+        {left_trigger_action_, "/user/hand/left/input/trigger/value"},
+        {left_squeeze_action_, "/user/hand/left/input/squeeze/value"},
+        {left_thumb_touch_action_, "/user/hand/left/input/thumbstick/touch"},
         {move_action_, "/user/hand/left/input/thumbstick"},
         {move_x_action_, "/user/hand/left/input/thumbstick/x"},
         {move_y_action_, "/user/hand/left/input/thumbstick/y"},
@@ -385,6 +397,7 @@ bool OpenXrTracker::create_actions() {
         {hand_pose_action_, "/user/hand/left/input/aim/pose"},
         {hand_pose_action_, "/user/hand/right/input/aim/pose"},
         {fire_action_, "/user/hand/right/input/trigger/value"},
+        {left_trigger_action_, "/user/hand/left/input/trigger/value"},
         {move_action_, "/user/hand/left/input/thumbstick"},
         {move_x_action_, "/user/hand/left/input/thumbstick/x"},
         {move_y_action_, "/user/hand/left/input/thumbstick/y"},
@@ -641,6 +654,14 @@ void OpenXrTracker::run_frame() {
         controller_input.motion_toggle =
             read_boolean(motion_toggle_action_, hand_paths_[1]);
         controller_input.interact = read_boolean(interact_action_, hand_paths_[0]);
+        const float left_index = std::clamp(
+            read_float(left_trigger_action_, hand_paths_[0]), 0.0F, 1.0F);
+        const float left_grip = std::clamp(
+            read_float(left_squeeze_action_, hand_paths_[0]), 0.0F, 1.0F);
+        const float left_thumb = read_boolean(
+            left_thumb_touch_action_, hand_paths_[0]) ? 1.0F : 0.0F;
+        next.left_finger_curls = {
+            left_thumb, left_index, left_grip, left_grip, left_grip};
     }
     next.controller_move_x = controller_input.move_x;
     next.controller_move_y = controller_input.move_y;
@@ -657,8 +678,8 @@ void OpenXrTracker::run_frame() {
         controller_aim_.toggle();
     }
     motion_toggle_previous_ = controller_input.motion_toggle;
-    controller_aim_.update(next.head, next.right_hand,
-                           active_render_frame_.source_pid, recenter_requested);
+    controller_aim_.update(next.right_hand, active_render_frame_.source_pid,
+                           recenter_requested);
     controller_input_.update(controller_input, active_render_frame_.source_pid);
 
     XrViewLocateInfo view_info{XR_TYPE_VIEW_LOCATE_INFO};
@@ -827,7 +848,8 @@ void OpenXrTracker::shutdown() {
     if (view_space_ != XR_NULL_HANDLE) xrDestroySpace(view_space_);
     if (local_space_ != XR_NULL_HANDLE) xrDestroySpace(local_space_);
     const std::array actions{
-        hand_pose_action_, fire_action_, aim_action_, move_action_, move_x_action_,
+        hand_pose_action_, fire_action_, aim_action_, left_trigger_action_,
+        left_squeeze_action_, left_thumb_touch_action_, move_action_, move_x_action_,
         move_y_action_, right_move_action_, right_move_x_action_,
         right_move_y_action_, sprint_action_,
         reload_action_, fire_mode_action_, swap_weapon_action_, interact_action_,
@@ -841,7 +863,8 @@ void OpenXrTracker::shutdown() {
     session_for_stop_.store(XR_NULL_HANDLE);
     if (instance_ != XR_NULL_HANDLE) xrDestroyInstance(instance_);
     view_space_ = local_space_ = XR_NULL_HANDLE;
-    hand_pose_action_ = fire_action_ = aim_action_ = move_action_ = XR_NULL_HANDLE;
+    hand_pose_action_ = fire_action_ = aim_action_ = left_trigger_action_ =
+        left_squeeze_action_ = left_thumb_touch_action_ = move_action_ = XR_NULL_HANDLE;
     move_x_action_ = move_y_action_ = XR_NULL_HANDLE;
     right_move_action_ = right_move_x_action_ = right_move_y_action_ = XR_NULL_HANDLE;
     sprint_action_ = reload_action_ = fire_mode_action_ = XR_NULL_HANDLE;

@@ -11,8 +11,7 @@ struct ControllerAngles {
     float pitch{};
 };
 
-ControllerAngles controller_angles_relative_to_head(
-    const TrackedPose& head, const TrackedPose& controller) noexcept;
+ControllerAngles controller_angles_world(const TrackedPose& controller) noexcept;
 
 class ControllerAimOutput final {
 public:
@@ -20,8 +19,8 @@ public:
 
     void recenter() noexcept;
     void toggle() noexcept;
-    void update(const TrackedPose& head, const TrackedPose& controller,
-                std::uint32_t game_pid, bool recenter_requested) noexcept;
+    void update(const TrackedPose& controller, std::uint32_t game_pid,
+                bool recenter_requested) noexcept;
     [[nodiscard]] bool enabled() const noexcept { return enabled_; }
 
 private:

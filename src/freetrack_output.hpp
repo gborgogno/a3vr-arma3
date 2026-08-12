@@ -16,11 +16,12 @@ struct FreeTrackPose {
     float z{};
 };
 
-FreeTrackPose to_freetrack_pose(const TrackedPose& pose) noexcept;
+FreeTrackPose to_freetrack_pose(
+    const TrackedPose& pose, float rotation_gain = 0.65F) noexcept;
 
 class FreeTrackOutput final {
 public:
-    FreeTrackOutput() = default;
+    FreeTrackOutput();
     ~FreeTrackOutput();
     FreeTrackOutput(const FreeTrackOutput&) = delete;
     FreeTrackOutput& operator=(const FreeTrackOutput&) = delete;
@@ -38,6 +39,7 @@ private:
     SharedMemory* data_{};
     bool origin_valid_{};
     TrackedPose origin_{};
+    float rotation_gain_{0.65F};
 };
 
 } // namespace a3vr

@@ -13,19 +13,6 @@ namespace {
 constexpr float kPi = 3.14159265358979323846F;
 constexpr float kMaximumFrameAngle = 0.20F;
 
-Quat conjugate(const Quat value) noexcept {
-    return {-value.x, -value.y, -value.z, value.w};
-}
-
-Quat multiply(const Quat a, const Quat b) noexcept {
-    return {
-        a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
-        a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
-        a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
-        a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
-    };
-}
-
 float wrap_angle(float value) noexcept {
     while (value > kPi) value -= 2.0F * kPi;
     while (value < -kPi) value += 2.0F * kPi;
@@ -43,11 +30,10 @@ bool game_is_foreground(const std::uint32_t game_pid) noexcept {
 
 } // namespace
 
-ControllerAngles controller_angles_relative_to_head(
-    const TrackedPose& head, const TrackedPose& controller) noexcept {
-    if (!head.orientation_valid || !controller.orientation_valid) return {};
-    const Quat relative = multiply(conjugate(head.orientation), controller.orientation);
-    const Vec3 forward = rotate(relative, {0.0F, 0.0F, -1.0F});
+ControllerAngles controller_angles_world(const TrackedPose& controller) noexcept {
+    if (!controller.orientation_valid) return {};
+    const Vec3 forward = rotate(
+        controller.orientation, {0.0F, 0.0F, -1.0F});
     return {
         // OpenXR's horizontal controller rotation has the opposite sign to
         // Windows relative mouse X as Arma consumes it.
@@ -87,8 +73,7 @@ void ControllerAimOutput::toggle() noexcept {
     recenter();
 }
 
-void ControllerAimOutput::update(const TrackedPose& head,
-                                 const TrackedPose& controller,
+void ControllerAimOutput::update(const TrackedPose& controller,
                                  const std::uint32_t game_pid,
                                  const bool recenter_requested) noexcept {
     const bool toggle_down = (GetAsyncKeyState(VK_F9) & 0x8000) != 0;
@@ -98,12 +83,14 @@ void ControllerAimOutput::update(const TrackedPose& head,
     toggle_key_down_ = toggle_down;
 
     if (recenter_requested) recenter();
-    if (!enabled_ || !head.orientation_valid || !controller.orientation_valid) {
+    if (!enabled_ || !controller.orientation_valid) {
         previous_valid_ = false;
         return;
     }
 
-    const ControllerAngles current = controller_angles_relative_to_head(head, controller);
+    // World-space controller deltas keep head rotation completely independent
+    // from weapon aiming. Turning the headset must never inject mouse input.
+    const ControllerAngles current = controller_angles_world(controller);
     if (!previous_valid_) {
         previous_ = current;
         previous_valid_ = true;
@@ -132,7 +119,7 @@ void ControllerAimOutput::update(const TrackedPose& head,
     input.type = INPUT_MOUSE;
     input.mi.dx = dx;
     input.mi.dy = dy;
-    input.mi.dwFlags = MOUSEEVENTF_MOVE;
+    input.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_MOVE_NOCOALESCE;
     (void)SendInput(1, &input, sizeof(input));
 }
 

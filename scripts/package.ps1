@@ -15,7 +15,7 @@ if ([string]::IsNullOrWhiteSpace($BuildDirectory)) {
 $ModDirectory = Join-Path $ProjectRoot "dist\@A3VR_Hybrid"
 $AddonDestination = Join-Path $ModDirectory "addons"
 $NativeDll = Join-Path $BuildDirectory "$Configuration\A3VRCore_x64.dll"
-$ServerExe = Join-Path $BuildDirectory "$Configuration\A3VRRuntime_v23.exe"
+$ServerExe = Join-Path $BuildDirectory "$Configuration\A3VRRuntime_v24.exe"
 
 if (-not (Test-Path -LiteralPath $NativeDll)) {
     throw "Build A3VR first: .\scripts\build.ps1 -Configuration $Configuration"
@@ -55,6 +55,7 @@ $ObsoleteArtifacts = @(
     "A3VRRuntime_v20.exe",
     "A3VRRuntime_v21.exe",
     "A3VRRuntime_v22.exe",
+    "A3VRRuntime_v23.exe",
     "A3VRIPC_x64.dll",
     "A3VRHost.exe"
 )
@@ -67,6 +68,8 @@ foreach ($Artifact in $ObsoleteArtifacts) {
 Copy-Item -Force -LiteralPath $NativeDll -Destination $ModDirectory
 Copy-Item -Force -LiteralPath $ServerExe -Destination $ModDirectory
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "mod.cpp") -Destination $ModDirectory
+Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "README.md") -Destination $ModDirectory
+Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "ROADMAP.md") -Destination $ModDirectory
 $PackagedScripts = Join-Path $ModDirectory "scripts"
 New-Item -ItemType Directory -Force -Path $PackagedScripts | Out-Null
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "INICIAR_A3VR.cmd") -Destination $ModDirectory

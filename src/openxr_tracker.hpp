@@ -72,6 +72,9 @@ private:
     XrAction hand_pose_action_{XR_NULL_HANDLE};
     XrAction fire_action_{XR_NULL_HANDLE};
     XrAction aim_action_{XR_NULL_HANDLE};
+    XrAction left_trigger_action_{XR_NULL_HANDLE};
+    XrAction left_squeeze_action_{XR_NULL_HANDLE};
+    XrAction left_thumb_touch_action_{XR_NULL_HANDLE};
     XrAction move_action_{XR_NULL_HANDLE};
     XrAction move_x_action_{XR_NULL_HANDLE};
     XrAction move_y_action_{XR_NULL_HANDLE};

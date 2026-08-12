@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(A3VR VERSION 1.5.4 LANGUAGES C CXX)
+project(A3VR VERSION 1.6.0 LANGUAGES C CXX)
 
 if(NOT WIN32 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
     message(FATAL_ERROR "A3VR currently requires 64-bit Windows.")
@@ -73,7 +73,7 @@ target_compile_definitions(A3VRServer PRIVATE
 )
 target_compile_options(A3VRServer PRIVATE /W4 /permissive- /EHsc /utf-8)
 target_link_libraries(A3VRServer PRIVATE openxr_loader d3d11 dxgi user32)
-set_target_properties(A3VRServer PROPERTIES OUTPUT_NAME "A3VRRuntime_v23")
+set_target_properties(A3VRServer PROPERTIES OUTPUT_NAME "A3VRRuntime_v24")
 
 add_executable(a3vr_math_tests
     tests/pose_tests.cpp
@@ -85,11 +85,14 @@ add_executable(a3vr_math_tests
     src/freetrack_output.cpp
     src/freetrack_output.hpp
 )
-target_compile_options(a3vr_math_tests PRIVATE /W4 /permissive- /EHsc /utf-8)
+target_compile_options(a3vr_math_tests PRIVATE /W4 /permissive- /EHsc /utf-8 /UNDEBUG)
 target_link_libraries(a3vr_math_tests PRIVATE user32)
 
 add_executable(a3vr_extension_smoke tests/extension_smoke.cpp)
-target_compile_options(a3vr_extension_smoke PRIVATE /W4 /permissive- /EHsc /utf-8)
+target_compile_definitions(a3vr_extension_smoke PRIVATE
+    A3VR_EXPECTED_VERSION="${PROJECT_VERSION}"
+)
+target_compile_options(a3vr_extension_smoke PRIVATE /W4 /permissive- /EHsc /utf-8 /UNDEBUG)
 target_link_libraries(a3vr_extension_smoke PRIVATE A3VR)
 
 add_executable(a3vr_openxr_diagnostic tests/openxr_diagnostic.cpp)
@@ -102,4 +105,4 @@ add_test(NAME a3vr_extension_smoke COMMAND a3vr_extension_smoke)
 
 install(TARGETS A3VR A3VRServer RUNTIME DESTINATION "@A3VR_Hybrid")
 install(DIRECTORY addons DESTINATION "@A3VR_Hybrid")
-install(FILES mod.cpp README.md DESTINATION "@A3VR_Hybrid")
+install(FILES mod.cpp README.md ROADMAP.md DESTINATION "@A3VR_Hybrid")

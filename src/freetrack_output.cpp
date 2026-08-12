@@ -3,11 +3,12 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <cstdlib>
+#include <iterator>
 
 namespace a3vr {
 namespace {
 
-constexpr float kRotationGain = 0.25F;
 constexpr float kTranslationGain = 0.25F;
 constexpr float kMaximumYaw = 1.74532925F;   // 100 degrees
 constexpr float kMaximumPitch = 1.39626340F; // 80 degrees
@@ -76,7 +77,8 @@ struct FreeTrackOutput::SharedMemory {
 
 static_assert(sizeof(FreeTrackData) == 92);
 
-FreeTrackPose to_freetrack_pose(const TrackedPose& pose) noexcept {
+FreeTrackPose to_freetrack_pose(
+    const TrackedPose& pose, const float rotation_gain) noexcept {
     const Vec3 forward = normalized(rotate(pose.orientation, {0.0F, 0.0F, -1.0F}));
     const float pitch = std::asin(std::clamp(forward.y, -1.0F, 1.0F));
     const float yaw = std::atan2(-forward.x, -forward.z);
@@ -85,8 +87,8 @@ FreeTrackPose to_freetrack_pose(const TrackedPose& pose) noexcept {
     // sign to OpenXR: moving the headset right must move the in-game viewpoint
     // right, not mirror it to the left.
     return {
-        std::clamp(yaw * kRotationGain, -kMaximumYaw, kMaximumYaw),
-        std::clamp(pitch * kRotationGain, -kMaximumPitch, kMaximumPitch),
+        std::clamp(yaw * rotation_gain, -kMaximumYaw, kMaximumYaw),
+        std::clamp(pitch * rotation_gain, -kMaximumPitch, kMaximumPitch),
         0.0F, // Arma's FreeTrack path is unstable with roll near pitch limits.
         std::clamp(-pose.position.x * 1000.0F * kTranslationGain,
                    -kMaximumTranslationMm, kMaximumTranslationMm),
@@ -95,6 +97,17 @@ FreeTrackPose to_freetrack_pose(const TrackedPose& pose) noexcept {
         std::clamp(-pose.position.z * 1000.0F * kTranslationGain,
                    -kMaximumTranslationMm, kMaximumTranslationMm),
     };
+}
+
+FreeTrackOutput::FreeTrackOutput() {
+    char value[32]{};
+    const DWORD size = GetEnvironmentVariableA(
+        "A3VR_HEAD_ROTATION_GAIN", value,
+        static_cast<DWORD>(std::size(value)));
+    if (size > 0 && size < std::size(value)) {
+        const float parsed = std::strtof(value, nullptr);
+        if (parsed >= 0.10F && parsed <= 1.50F) rotation_gain_ = parsed;
+    }
 }
 
 FreeTrackOutput::~FreeTrackOutput() { close(); }
@@ -142,7 +155,8 @@ void FreeTrackOutput::publish(const TrackedPose& pose) {
         origin_ = pose;
         origin_valid_ = true;
     }
-    const FreeTrackPose converted = to_freetrack_pose(relative_to(pose, origin_));
+    const FreeTrackPose converted = to_freetrack_pose(
+        relative_to(pose, origin_), rotation_gain_);
     auto& output = data_->data;
     output.yaw = output.raw_yaw = converted.yaw;
     output.pitch = output.raw_pitch = converted.pitch;

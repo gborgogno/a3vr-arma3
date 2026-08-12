@@ -35,26 +35,23 @@ int main() {
     tracked.position = {};
     tracked.orientation = {0.0F, std::sin(half_angle), 0.0F, std::cos(half_angle)};
     const auto limited_rotation = a3vr::to_freetrack_pose(tracked);
-    assert(approximately_equal(limited_rotation.yaw, 0.125F));
+    assert(approximately_equal(limited_rotation.yaw, 0.325F));
     assert(approximately_equal(limited_rotation.pitch, 0.0F));
 
     tracked.orientation = {std::sin(half_angle), 0.0F, 0.0F, std::cos(half_angle)};
     const auto limited_vertical = a3vr::to_freetrack_pose(tracked);
     assert(approximately_equal(limited_vertical.yaw, 0.0F));
-    assert(approximately_equal(limited_vertical.pitch, 0.125F));
+    assert(approximately_equal(limited_vertical.pitch, 0.325F));
 
-    a3vr::TrackedPose head{};
-    head.orientation_valid = true;
-    head.orientation = identity;
     a3vr::TrackedPose controller{};
     controller.orientation_valid = true;
     controller.orientation = {0.0F, std::sin(half_angle), 0.0F, std::cos(half_angle)};
-    const auto controller_yaw = a3vr::controller_angles_relative_to_head(head, controller);
+    const auto controller_yaw = a3vr::controller_angles_world(controller);
     assert(approximately_equal(controller_yaw.yaw, -0.5F));
     assert(approximately_equal(controller_yaw.pitch, 0.0F));
 
     controller.orientation = {std::sin(half_angle), 0.0F, 0.0F, std::cos(half_angle)};
-    const auto controller_pitch = a3vr::controller_angles_relative_to_head(head, controller);
+    const auto controller_pitch = a3vr::controller_angles_world(controller);
     assert(approximately_equal(controller_pitch.yaw, 0.0F));
     assert(approximately_equal(controller_pitch.pitch, 0.5F));
 

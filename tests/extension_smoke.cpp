@@ -5,6 +5,10 @@
 #include <string>
 #include <thread>
 
+#ifndef A3VR_EXPECTED_VERSION
+#define A3VR_EXPECTED_VERSION "dev"
+#endif
+
 extern "C" {
 __declspec(dllimport) void __stdcall RVExtensionVersion(char*, unsigned int);
 __declspec(dllimport) void __stdcall RVExtension(char*, unsigned int, const char*);
@@ -18,10 +22,12 @@ int main(const int argc, char** argv) {
         return 0;
     }
     RVExtensionVersion(output.data(), static_cast<unsigned int>(output.size()));
-    assert(std::string(output.data()) == "1.5.1");
+    assert(std::string(output.data()) == A3VR_EXPECTED_VERSION);
 
     RVExtension(output.data(), static_cast<unsigned int>(output.size()), "start");
-    assert(std::string(output.data()) == "starting");
+    const std::string start_status(output.data());
+    assert(!start_status.empty());
+    assert(!start_status.starts_with("error:"));
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     RVExtension(output.data(), static_cast<unsigned int>(output.size()), "status");

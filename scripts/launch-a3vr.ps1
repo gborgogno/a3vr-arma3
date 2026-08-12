@@ -27,7 +27,7 @@ $Game = Join-Path $GameDirectory "arma3_x64.exe"
 $Launcher = Join-Path $GameDirectory "arma3launcher.exe"
 $ModDirectory = Split-Path -Parent $PSScriptRoot
 $ModName = Split-Path -Leaf $ModDirectory
-$Runtime = Join-Path $ModDirectory "A3VRRuntime_v23.exe"
+$Runtime = Join-Path $ModDirectory "A3VRRuntime_v24.exe"
 
 if (-not (Test-Path -LiteralPath $Game)) { throw "Arma 3 was not found at $Game" }
 if ($UseArmaLauncher -and -not (Test-Path -LiteralPath $Launcher)) {
@@ -36,7 +36,7 @@ if ($UseArmaLauncher -and -not (Test-Path -LiteralPath $Launcher)) {
 if ($UseArmaLauncher -and -not [string]::IsNullOrWhiteSpace($AdditionalMods)) {
     throw "Use either -UseArmaLauncher or -AdditionalMods, not both."
 }
-if (-not (Test-Path -LiteralPath $Runtime)) { throw "A3VR runtime v23 was not found at $Runtime" }
+if (-not (Test-Path -LiteralPath $Runtime)) { throw "A3VR runtime v24 was not found at $Runtime" }
 if (Get-Process arma3_x64 -ErrorAction SilentlyContinue) {
     throw "Close the existing Arma 3 process before starting A3VR."
 }
@@ -47,6 +47,7 @@ if (Get-Process -Name "A3VRRuntime_v*" -ErrorAction SilentlyContinue) {
 $env:A3VR_STEREO_MODE = "mono"
 $env:A3VR_CONTROLLER_AIM = "1"
 $env:A3VR_CONTROLLER_COUNTS_PER_RADIAN = "900"
+$env:A3VR_HEAD_ROTATION_GAIN = "0.65"
 $env:A3VR_CONTROLLER_BUTTONS = "1"
 $env:A3VR_CONTROLLER_STICK_THRESHOLD = "0.25"
 $RuntimeProcess = Start-Process -FilePath $Runtime -WorkingDirectory $ModDirectory `
@@ -54,7 +55,7 @@ $RuntimeProcess = Start-Process -FilePath $Runtime -WorkingDirectory $ModDirecto
 try {
     Start-Sleep -Milliseconds 1200
     if ($RuntimeProcess.HasExited) {
-        throw "A3VRRuntime_v23 exited before Arma started."
+        throw "A3VRRuntime_v24 exited before Arma started."
     }
     if ($UseArmaLauncher) {
         $LauncherProcess = Start-Process -FilePath $Launcher `

@@ -14,6 +14,7 @@ behavior over full room-scale VR interaction.
 - 6DoF headset tracking through Arma's FreeTrack input path.
 - Native Arma weapon, muzzle, projectiles, effects and optics.
 - Right-controller motion aiming without replacing the weapon model.
+- Left-hand 6DoF pose and controller-derived finger-curl telemetry.
 - Controller movement, firing, aiming, sprint, reload, interaction, fire mode
   and weapon switching.
 - Automatic runtime cleanup when Arma exits.
@@ -45,7 +46,7 @@ the controller-driven mouse movement is inconvenient.
 
 ## Architecture
 
-- `A3VRRuntime_v23.exe` owns the OpenXR session, tracks the headset and
+- `A3VRRuntime_v24.exe` owns the OpenXR session, tracks the headset and
   controllers, submits frames and publishes FreeTrack data.
 - `A3VRCore_x64.dll` is loaded by Arma, captures the D3D11 backbuffer and
   exchanges tracking/render data with the runtime through shared memory.
@@ -71,7 +72,7 @@ committed.
 ```
 
 The script configures CMake, builds `A3VRCore_x64.dll` and
-`A3VRRuntime_v23.exe`, then runs the automated math and extension smoke tests.
+`A3VRRuntime_v24.exe`, then runs the automated math and extension smoke tests.
 
 ## Package and install
 
@@ -119,6 +120,14 @@ private _sample = parseSimpleArray ("A3VRCore" callExtension "pose");
 "A3VRCore" callExtension "probe";
 ```
 
+The `pose` result keeps its existing fields and appends a five-value
+left-finger curl array ordered thumb, index, middle, ring and pinky.
+Controller-derived curls are an approximation; true independent joints
+require optical hand tracking.
+
+Head rotation defaults to a `0.65` gain. Advanced users can override it by
+setting `A3VR_HEAD_ROTATION_GAIN` between `0.10` and `1.50` before launching.
+
 ## Limitations and safety
 
 - This remains experimental and is not a native Arma 3 VR renderer.
@@ -132,3 +141,6 @@ private _sample = parseSimpleArray ("A3VRCore" callExtension "pose");
 
 The project does not modify Arma network traffic or overwrite base-game files.
 All installed files live inside the A3VR mod directory.
+
+See [ROADMAP.md](ROADMAP.md) for the planned tracked-hand, holster and physical
+inventory work.
