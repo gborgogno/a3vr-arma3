@@ -481,6 +481,12 @@ bool OpenXrTracker::update_shared_render_source() {
     SharedRenderFrame frame{};
     if (!render_state_.read_render(frame) || frame.shared_handle == 0 || frame.source_pid == 0)
         return game_texture_ != nullptr;
+    // Never replace a compositor-visible texture with a handle that has not
+    // received a complete game frame yet. Startup/loading swapchain handovers
+    // publish state 1 briefly; accepting those handles caused the headset to
+    // alternate between valid video and an empty layer.
+    if (frame.capture_state != 3 || frame.frame_sequence == 0)
+        return game_texture_ != nullptr;
     if (game_texture_ && frame.source_pid == active_render_frame_.source_pid &&
         frame.shared_handle == active_render_frame_.shared_handle &&
         frame.width == active_render_frame_.width && frame.height == active_render_frame_.height &&
@@ -623,27 +629,9 @@ void OpenXrTracker::run_frame() {
         if (std::abs(component_y) > std::abs(controller_input.move_y)) {
             controller_input.move_y = component_y;
         }
-        float right_x{};
-        float right_y{};
-        XrActionStateGetInfo right_move_info{XR_TYPE_ACTION_STATE_GET_INFO};
-        right_move_info.action = right_move_action_;
-        right_move_info.subactionPath = hand_paths_[1];
-        XrActionStateVector2f right_move_state{XR_TYPE_ACTION_STATE_VECTOR2F};
-        if (xr_ok(xrGetActionStateVector2f(session_, &right_move_info,
-                                           &right_move_state)) &&
-            right_move_state.isActive) {
-            right_x = right_move_state.currentState.x;
-            right_y = right_move_state.currentState.y;
-        }
-        const float right_component_x = read_float(right_move_x_action_, hand_paths_[1]);
-        const float right_component_y = read_float(right_move_y_action_, hand_paths_[1]);
-        if (std::abs(right_component_x) > std::abs(right_x)) right_x = right_component_x;
-        if (std::abs(right_component_y) > std::abs(right_y)) right_y = right_component_y;
-        if (std::hypot(right_x, right_y) >
-            std::hypot(controller_input.move_x, controller_input.move_y)) {
-            controller_input.move_x = right_x;
-            controller_input.move_y = right_y;
-        }
+        // Movement and smooth turning belong exclusively to the left stick.
+        // Reading the right stick here used to let it steal the movement vector,
+        // which made launcher/DLC sessions appear to lose their controller map.
         controller_input.fire = read_float(fire_action_, hand_paths_[1]) >= 0.55F;
         controller_input.aim = read_float(aim_action_, hand_paths_[1]) >= 0.55F;
         controller_input.sprint = read_boolean(sprint_action_, hand_paths_[0]) ||
@@ -678,7 +666,7 @@ void OpenXrTracker::run_frame() {
         controller_aim_.toggle();
     }
     motion_toggle_previous_ = controller_input.motion_toggle;
-    controller_aim_.update(next.right_hand, active_render_frame_.source_pid,
+    controller_aim_.update(next.right_hand, next.head, active_render_frame_.source_pid,
                            recenter_requested);
     controller_input_.update(controller_input, active_render_frame_.source_pid);
 

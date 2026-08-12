@@ -12,6 +12,9 @@ namespace {
 
 constexpr float kPi = 3.14159265358979323846F;
 constexpr float kMaximumFrameAngle = 0.20F;
+constexpr float kCursorHorizontalFov = 70.0F * kPi / 180.0F;
+constexpr float kCursorVerticalFov = 50.0F * kPi / 180.0F;
+constexpr float kCursorSmoothing = 0.32F;
 
 float wrap_angle(float value) noexcept {
     while (value > kPi) value -= 2.0F * kPi;
@@ -28,6 +31,32 @@ bool game_is_foreground(const std::uint32_t game_pid) noexcept {
     return foreground_pid == game_pid;
 }
 
+bool game_cursor_is_visible() noexcept {
+    CURSORINFO info{sizeof(info)};
+    return GetCursorInfo(&info) != FALSE && (info.flags & CURSOR_SHOWING) != 0;
+}
+
+float dot(const Vec3 a, const Vec3 b) noexcept {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+void move_cursor_in_game_window(const std::uint32_t game_pid,
+                                const float x, const float y) noexcept {
+    const HWND window = GetForegroundWindow();
+    if (window == nullptr) return;
+    DWORD foreground_pid{};
+    GetWindowThreadProcessId(window, &foreground_pid);
+    if (foreground_pid != game_pid) return;
+    RECT client{};
+    if (!GetClientRect(window, &client)) return;
+    POINT origin{client.left, client.top};
+    if (!ClientToScreen(window, &origin)) return;
+    const int width = (std::max)(1L, client.right - client.left);
+    const int height = (std::max)(1L, client.bottom - client.top);
+    SetCursorPos(origin.x + static_cast<int>(std::lround(x * (width - 1))),
+                 origin.y + static_cast<int>(std::lround(y * (height - 1))));
+}
+
 } // namespace
 
 ControllerAngles controller_angles_world(const TrackedPose& controller) noexcept {
@@ -39,6 +68,27 @@ ControllerAngles controller_angles_world(const TrackedPose& controller) noexcept
         // Windows relative mouse X as Arma consumes it.
         std::atan2(forward.x, -forward.z),
         std::asin(std::clamp(forward.y, -1.0F, 1.0F)),
+    };
+}
+
+ControllerCursorPosition controller_cursor_position(
+    const TrackedPose& controller, const TrackedPose& head,
+    const float horizontal_fov_radians,
+    const float vertical_fov_radians) noexcept {
+    if (!controller.orientation_valid || !head.orientation_valid ||
+        horizontal_fov_radians <= 0.0F || vertical_fov_radians <= 0.0F) return {};
+    const Vec3 controller_forward = rotate(controller.orientation, {0.0F, 0.0F, -1.0F});
+    const Vec3 head_forward = rotate(head.orientation, {0.0F, 0.0F, -1.0F});
+    const Vec3 head_right = rotate(head.orientation, {1.0F, 0.0F, 0.0F});
+    const Vec3 head_up = rotate(head.orientation, {0.0F, 1.0F, 0.0F});
+    const float forward = dot(controller_forward, head_forward);
+    if (forward <= 0.05F) return {};
+    const float yaw = std::atan2(dot(controller_forward, head_right), forward);
+    const float pitch = std::atan2(dot(controller_forward, head_up), forward);
+    return {
+        true,
+        std::clamp(0.5F + yaw / horizontal_fov_radians, 0.0F, 1.0F),
+        std::clamp(0.5F - pitch / vertical_fov_radians, 0.0F, 1.0F),
     };
 }
 
@@ -74,6 +124,7 @@ void ControllerAimOutput::toggle() noexcept {
 }
 
 void ControllerAimOutput::update(const TrackedPose& controller,
+                                 const TrackedPose& head,
                                  const std::uint32_t game_pid,
                                  const bool recenter_requested) noexcept {
     const bool toggle_down = (GetAsyncKeyState(VK_F9) & 0x8000) != 0;
@@ -82,11 +133,41 @@ void ControllerAimOutput::update(const TrackedPose& controller,
     }
     toggle_key_down_ = toggle_down;
 
+    const bool cursor_toggle_down = (GetAsyncKeyState(VK_F10) & 0x8000) != 0;
+    if (cursor_toggle_down && !cursor_toggle_key_down_) cursor_forced_ = !cursor_forced_;
+    cursor_toggle_key_down_ = cursor_toggle_down;
+
     if (recenter_requested) recenter();
     if (!enabled_ || !controller.orientation_valid) {
         previous_valid_ = false;
         return;
     }
+
+    if (!game_is_foreground(game_pid)) {
+        previous_valid_ = false;
+        cursor_mode_previous_ = false;
+        return;
+    }
+
+    const bool cursor_mode = cursor_forced_ || game_cursor_is_visible();
+    if (cursor_mode) {
+        const ControllerCursorPosition target = controller_cursor_position(
+            controller, head, kCursorHorizontalFov, kCursorVerticalFov);
+        if (target.valid) {
+            if (!cursor_mode_previous_) {
+                cursor_x_ = target.x;
+                cursor_y_ = target.y;
+            } else {
+                cursor_x_ += (target.x - cursor_x_) * kCursorSmoothing;
+                cursor_y_ += (target.y - cursor_y_) * kCursorSmoothing;
+            }
+            move_cursor_in_game_window(game_pid, cursor_x_, cursor_y_);
+        }
+        cursor_mode_previous_ = true;
+        previous_valid_ = false;
+        return;
+    }
+    cursor_mode_previous_ = false;
 
     // World-space controller deltas keep head rotation completely independent
     // from weapon aiming. Turning the headset must never inject mouse input.
@@ -104,8 +185,6 @@ void ControllerAimOutput::update(const TrackedPose& controller,
         current.pitch - previous_.pitch,
         -kMaximumFrameAngle, kMaximumFrameAngle);
     previous_ = current;
-
-    if (!game_is_foreground(game_pid)) return;
 
     residual_x_ += yaw_delta * counts_per_radian_;
     residual_y_ += -pitch_delta * counts_per_radian_;

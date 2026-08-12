@@ -85,7 +85,7 @@ bool launch_server() {
     std::wstring server_path(module_path);
     const auto separator = server_path.find_last_of(L"\\/");
     server_path.resize(separator + 1);
-    server_path += L"A3VRRuntime_v25.exe";
+    server_path += L"A3VRRuntime_v29.exe";
     std::wstring command = L"\"" + server_path + L"\" --parent " +
                            std::to_wstring(GetCurrentProcessId());
     STARTUPINFOW startup{sizeof(startup)};
@@ -110,7 +110,7 @@ std::string dispatch(const std::string_view function) {
         a3vr::TrackingSnapshot snapshot{};
         std::string status;
         if (read_state(snapshot, status)) return status;
-        return launch_server() ? "starting" : "error: cannot launch A3VRRuntime_v25.exe";
+        return launch_server() ? "starting" : "error: cannot launch A3VRRuntime_v29.exe";
     }
     if (function == "status") {
         a3vr::TrackingSnapshot snapshot{};
@@ -166,4 +166,25 @@ __declspec(dllexport) int __stdcall RVExtensionArgs(char* output, unsigned int o
     RVExtension(output, output_size, function);
     return 0;
 }
+}
+
+namespace {
+DWORD WINAPI start_capture_after_load(void*) {
+    // DllMain itself runs under the loader lock. Install the DXGI hooks from a
+    // worker only after LoadLibrary has completed so logo/menu frames can be
+    // captured safely when the launcher preloads this extension.
+    (void)a3vr::start_d3d11_capture();
+    return 0;
+}
+}
+
+BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID) {
+    if (reason == DLL_PROCESS_ATTACH) {
+        DisableThreadLibraryCalls(instance);
+        if (HANDLE worker = CreateThread(nullptr, 0, start_capture_after_load,
+                                         nullptr, 0, nullptr)) {
+            CloseHandle(worker);
+        }
+    }
+    return TRUE;
 }

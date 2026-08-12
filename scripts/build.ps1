@@ -15,4 +15,4 @@ ctest --test-dir $BuildDirectory -C $Configuration --output-on-failure
 if ($LASTEXITCODE -ne 0) { throw "Tests failed with exit code $LASTEXITCODE" }
 
 Write-Host "DLL: $BuildDirectory\$Configuration\A3VRCore_x64.dll"
-Write-Host "Server: $BuildDirectory\$Configuration\A3VRRuntime_v25.exe"
+Write-Host "Server: $BuildDirectory\$Configuration\A3VRRuntime_v29.exe"

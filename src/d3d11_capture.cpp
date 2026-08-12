@@ -34,16 +34,32 @@ HANDLE shared_handle{};
 IDXGISwapChain* captured_swapchain{};
 SharedRenderFrame render_frame{};
 SharedState render_state;
+std::uint64_t captured_area{};
+ULONGLONG last_selected_present_tick{};
 
-void release_shared_texture() {
-    std::scoped_lock lock(resource_mutex);
+void release_shared_texture_locked() {
     keyed_mutex.Reset();
     shared_texture.Reset();
     owner_texture.Reset();
     owner_device.Reset();
     shared_handle = nullptr;
     captured_swapchain = nullptr;
+    captured_area = 0;
+    last_selected_present_tick = 0;
     render_frame = {};
+}
+
+void release_shared_texture() {
+    std::scoped_lock lock(resource_mutex);
+    release_shared_texture_locked();
+}
+
+bool belongs_to_game_window(IDXGISwapChain* swapchain) noexcept {
+    DXGI_SWAP_CHAIN_DESC desc{};
+    if (FAILED(swapchain->GetDesc(&desc)) || desc.OutputWindow == nullptr) return false;
+    DWORD window_pid{};
+    GetWindowThreadProcessId(desc.OutputWindow, &window_pid);
+    return window_pid == GetCurrentProcessId();
 }
 
 bool create_shared_texture(IDXGISwapChain* swapchain, ID3D11Texture2D* backbuffer) {
@@ -141,17 +157,28 @@ HRESULT __stdcall hooked_present(IDXGISwapChain* swapchain, UINT sync_interval, 
             if (SUCCEEDED(swapchain->GetBuffer(0, IID_PPV_ARGS(&backbuffer)))) {
                 D3D11_TEXTURE2D_DESC source{};
                 backbuffer->GetDesc(&source);
+                const std::uint64_t candidate_area =
+                    static_cast<std::uint64_t>(source.Width) * source.Height;
+                const ULONGLONG now = GetTickCount64();
+                const bool usable = source.Width >= 640 && source.Height >= 360 &&
+                    belongs_to_game_window(swapchain);
+                const bool selected = captured_swapchain == swapchain;
+                const bool selected_stale = last_selected_present_tick == 0 ||
+                    now - last_selected_present_tick >= 350;
+                const bool materially_larger = captured_area == 0 ||
+                    candidate_area * 10 >= captured_area * 12;
+                const bool may_select = usable && (selected || captured_swapchain == nullptr ||
+                    materially_larger || selected_stale);
+                if (!may_select) {
+                    lock.unlock();
+                    return original_present(swapchain, sync_interval, flags);
+                }
                 const bool changed = captured_swapchain != swapchain || !shared_texture ||
                     render_frame.width != source.Width || render_frame.height != source.Height ||
                     render_frame.dxgi_format != static_cast<std::uint32_t>(source.Format);
                 if (changed) {
-                    keyed_mutex.Reset();
-                    shared_texture.Reset();
-                    owner_texture.Reset();
-                    owner_device.Reset();
-                    shared_handle = nullptr;
+                    release_shared_texture_locked();
                     create_shared_texture(swapchain, backbuffer.Get());
-                    render_state.publish_render(render_frame);
                 }
                 if (shared_texture) {
                     ComPtr<ID3D11Device> device;
@@ -168,6 +195,8 @@ HRESULT __stdcall hooked_present(IDXGISwapChain* swapchain, UINT sync_interval, 
                         ++render_frame.frame_sequence;
                         render_frame.capture_state = 3;
                         render_frame.last_hresult = S_OK;
+                        captured_area = candidate_area;
+                        last_selected_present_tick = now;
                         render_state.publish_render(render_frame);
                         context->Flush();
                     }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 
 namespace a3vr {
@@ -52,7 +53,11 @@ private:
     bool swap_previous_{};
     bool interact_previous_{};
     bool sidearm_selected_{};
+    bool smooth_turn_enabled_{};
     float stick_threshold_{0.25F};
+    float smooth_turn_counts_per_second_{420.0F};
+    float smooth_turn_residual_{};
+    std::chrono::steady_clock::time_point last_update_{};
 };
 
 } // namespace a3vr

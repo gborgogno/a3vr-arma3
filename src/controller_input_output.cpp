@@ -1,6 +1,8 @@
 #include "controller_input_output.hpp"
 
 #include <algorithm>
+#include <chrono>
+#include <cmath>
 #include <cstdlib>
 #include <iterator>
 #include <string_view>
@@ -16,6 +18,11 @@ bool game_is_foreground(const std::uint32_t game_pid) noexcept {
     DWORD foreground_pid{};
     GetWindowThreadProcessId(foreground, &foreground_pid);
     return foreground_pid == game_pid;
+}
+
+bool game_cursor_is_visible() noexcept {
+    CURSORINFO info{sizeof(info)};
+    return GetCursorInfo(&info) != FALSE && (info.flags & CURSOR_SHOWING) != 0;
 }
 
 void set_key(const WORD key, const bool requested, bool& held) noexcept {
@@ -80,6 +87,22 @@ ControllerInputOutput::ControllerInputOutput() {
         const float parsed = std::strtof(threshold_value, nullptr);
         if (parsed >= 0.1F && parsed <= 0.9F) stick_threshold_ = parsed;
     }
+
+    char smooth_turn_value[8]{};
+    const DWORD smooth_turn_size = GetEnvironmentVariableA(
+        "A3VR_SMOOTH_TURN", smooth_turn_value,
+        static_cast<DWORD>(std::size(smooth_turn_value)));
+    smooth_turn_enabled_ = smooth_turn_size > 0 &&
+        std::string_view(smooth_turn_value) == "1";
+
+    char turn_rate_value[32]{};
+    const DWORD turn_rate_size = GetEnvironmentVariableA(
+        "A3VR_SMOOTH_TURN_COUNTS_PER_SECOND", turn_rate_value,
+        static_cast<DWORD>(std::size(turn_rate_value)));
+    if (turn_rate_size > 0 && turn_rate_size < std::size(turn_rate_value)) {
+        const float parsed = std::strtof(turn_rate_value, nullptr);
+        if (parsed >= 50.0F && parsed <= 2000.0F) smooth_turn_counts_per_second_ = parsed;
+    }
 }
 
 ControllerInputOutput::~ControllerInputOutput() { release_all(); }
@@ -92,6 +115,8 @@ void ControllerInputOutput::release_all() noexcept {
     set_key(VK_LSHIFT, false, sprint_);
     set_mouse_button(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, false, fire_);
     set_mouse_button(MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, false, aim_);
+    smooth_turn_residual_ = 0.0F;
+    last_update_ = {};
 }
 
 void ControllerInputOutput::update(
@@ -105,8 +130,17 @@ void ControllerInputOutput::update(
         return;
     }
 
-    const MovementKeys movement = movement_keys_from_stick(
-        state.move_x, state.move_y, stick_threshold_);
+    const auto now = std::chrono::steady_clock::now();
+    float delta_seconds{};
+    if (last_update_.time_since_epoch().count() != 0) {
+        delta_seconds = std::clamp(
+            std::chrono::duration<float>(now - last_update_).count(), 0.0F, 0.05F);
+    }
+    last_update_ = now;
+
+    const bool ui_mode = game_cursor_is_visible();
+    const MovementKeys movement = ui_mode ? MovementKeys{} : movement_keys_from_stick(
+        smooth_turn_enabled_ ? 0.0F : state.move_x, state.move_y, stick_threshold_);
     set_key('W', movement.forward, forward_);
     set_key('S', movement.backward, backward_);
     set_key('A', movement.left, left_);
@@ -115,6 +149,26 @@ void ControllerInputOutput::update(
                                        movement.left || movement.right), sprint_);
     set_mouse_button(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, state.fire, fire_);
     set_mouse_button(MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, state.aim, aim_);
+
+    if (smooth_turn_enabled_ && !ui_mode && delta_seconds > 0.0F) {
+        const float magnitude = std::abs(state.move_x);
+        if (magnitude > stick_threshold_) {
+            const float normalized = std::copysign(
+                (magnitude - stick_threshold_) / (1.0F - stick_threshold_), state.move_x);
+            smooth_turn_residual_ += normalized * smooth_turn_counts_per_second_ * delta_seconds;
+            const LONG dx = static_cast<LONG>(std::lround(smooth_turn_residual_));
+            smooth_turn_residual_ -= static_cast<float>(dx);
+            if (dx != 0) {
+                INPUT input{};
+                input.type = INPUT_MOUSE;
+                input.mi.dx = dx;
+                input.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_MOVE_NOCOALESCE;
+                (void)SendInput(1, &input, sizeof(input));
+            }
+        } else {
+            smooth_turn_residual_ = 0.0F;
+        }
+    }
 
     tap_on_rising_edge(state.reload, reload_previous_, 'R');
     tap_on_rising_edge(state.fire_mode, fire_mode_previous_, 'F');

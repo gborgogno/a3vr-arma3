@@ -33,6 +33,14 @@ if ((Split-Path -Leaf $Target) -ne "@A3VR_Hybrid") {
     throw "Unexpected install target: $Target"
 }
 New-Item -ItemType Directory -Force -Path $Target | Out-Null
+$ResolvedTarget = [System.IO.Path]::GetFullPath($Target).TrimEnd('\')
+Get-ChildItem -LiteralPath $Target -Filter "A3VRRuntime_v*.exe" -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -ne "A3VRRuntime_v29.exe" } | ForEach-Object {
+        if ([System.IO.Path]::GetFullPath($_.DirectoryName).TrimEnd('\') -ne $ResolvedTarget) {
+            throw "Refusing to remove runtime outside install target: $($_.FullName)"
+        }
+        Remove-Item -LiteralPath $_.FullName -Force
+    }
 Copy-Item -Path (Join-Path $Package "*") -Destination $Target -Recurse -Force
 Write-Host "Installed A3VR Hybrid at $Target"
 Write-Host "Use INICIAR_A3VR_LAUNCHER.cmd to select A3VR Hybrid with other mods."

@@ -18,6 +18,8 @@ behavior over full room-scale VR interaction.
 - Local left-hand calibration skeleton with articulated fingers (F7).
 - Controller movement, firing, aiming, sprint, reload, interaction, fire mode
   and weapon switching.
+- Automatic VR-controller cursor in Arma menus and smooth body turning.
+- Early logo/menu capture with stable swapchain handover.
 - Automatic runtime cleanup when Arma exits.
 - Recenter and motion-aim toggles.
 
@@ -29,26 +31,28 @@ controllers where matching OpenXR paths are available.
 | Input | Action |
 | --- | --- |
 | Headset | Arma head tracking |
-| Right controller movement | Move the native Arma aim |
+| Right controller movement | Aim in game / point at the UI cursor in menus |
 | Right trigger | Fire |
 | Right grip | Aim down sights |
 | Right A | Reload |
 | Right thumbstick click | Fire mode |
 | Right B | Toggle motion aiming |
-| Left thumbstick | Move |
+| Left thumbstick vertical | Move forward/backward |
+| Left thumbstick horizontal | Smooth body turn |
 | Left thumbstick click | Sprint |
 | Left X / A | Interact |
 | Left Y / B | Switch primary/sidearm |
 | F8 | Recenter head tracking |
 | F7 | Toggle the left-hand calibration skeleton |
 | F9 | Toggle motion aiming |
+| F10 | Force/release VR UI cursor mode |
 
 Turn motion aiming off with right B or F9 before using vehicle controls when
 the controller-driven mouse movement is inconvenient.
 
 ## Architecture
 
-- `A3VRRuntime_v25.exe` owns the OpenXR session, tracks the headset and
+- `A3VRRuntime_v29.exe` owns the OpenXR session, tracks the headset and
   controllers, submits frames and publishes FreeTrack data.
 - `A3VRCore_x64.dll` is loaded by Arma, captures the D3D11 backbuffer and
   exchanges tracking/render data with the runtime through shared memory.
@@ -74,7 +78,7 @@ committed.
 ```
 
 The script configures CMake, builds `A3VRCore_x64.dll` and
-`A3VRRuntime_v25.exe`, then runs the automated math and extension smoke tests.
+`A3VRRuntime_v29.exe`, then runs the automated math and extension smoke tests.
 
 ## Package and install
 
@@ -91,6 +95,10 @@ through `-AddonBuilder`.
 Start the installed package with `INICIAR_A3VR.cmd`. The launcher searches
 common Steam locations. For a custom library, either pass `-GameDirectory` to
 `scripts\launch-a3vr.ps1` or set `ARMA3_DIR`.
+
+For S.O.G. Prairie Fire use `INICIAR_A3VR_SOG.cmd`. This direct preset loads
+both `@A3VR_Hybrid` and `vn`, avoiding a launcher preset in which the DLC is
+enabled but the A3VR addon is missing.
 
 ## Play with other mods
 
@@ -132,7 +140,7 @@ wrist position, axes, scale and finger inputs without replacing or moving
 Arma's weapon. The small red, green and blue lines show hand right, forward
 and up respectively. A skinned P3D glove replaces this proxy after calibration.
 
-Head rotation defaults to a `0.65` gain. Advanced users can override it by
+Head rotation defaults to a comfort-oriented `0.48` gain. Advanced users can override it by
 setting `A3VR_HEAD_ROTATION_GAIN` between `0.10` and `1.50` before launching.
 
 ## Limitations and safety

@@ -35,13 +35,13 @@ int main() {
     tracked.position = {};
     tracked.orientation = {0.0F, std::sin(half_angle), 0.0F, std::cos(half_angle)};
     const auto limited_rotation = a3vr::to_freetrack_pose(tracked);
-    assert(approximately_equal(limited_rotation.yaw, 0.325F));
+    assert(approximately_equal(limited_rotation.yaw, 0.24F));
     assert(approximately_equal(limited_rotation.pitch, 0.0F));
 
     tracked.orientation = {std::sin(half_angle), 0.0F, 0.0F, std::cos(half_angle)};
     const auto limited_vertical = a3vr::to_freetrack_pose(tracked);
     assert(approximately_equal(limited_vertical.yaw, 0.0F));
-    assert(approximately_equal(limited_vertical.pitch, 0.325F));
+    assert(approximately_equal(limited_vertical.pitch, 0.24F));
 
     a3vr::TrackedPose controller{};
     controller.orientation_valid = true;
@@ -54,6 +54,23 @@ int main() {
     const auto controller_pitch = a3vr::controller_angles_world(controller);
     assert(approximately_equal(controller_pitch.yaw, 0.0F));
     assert(approximately_equal(controller_pitch.pitch, 0.5F));
+
+    a3vr::TrackedPose head{};
+    head.orientation_valid = true;
+    head.orientation = identity;
+    controller.orientation = identity;
+    const auto cursor_center = a3vr::controller_cursor_position(
+        controller, head, 1.2F, 0.9F);
+    assert(cursor_center.valid && approximately_equal(cursor_center.x, 0.5F) &&
+           approximately_equal(cursor_center.y, 0.5F));
+    controller.orientation = {0.0F, std::sin(half_angle), 0.0F, std::cos(half_angle)};
+    const auto cursor_left = a3vr::controller_cursor_position(
+        controller, head, 1.2F, 0.9F);
+    assert(cursor_left.valid && cursor_left.x < 0.5F);
+    controller.orientation = {std::sin(half_angle), 0.0F, 0.0F, std::cos(half_angle)};
+    const auto cursor_up = a3vr::controller_cursor_position(
+        controller, head, 1.2F, 0.9F);
+    assert(cursor_up.valid && cursor_up.y < 0.5F);
 
     const auto idle_movement = a3vr::movement_keys_from_stick(0.1F, -0.1F);
     assert(!idle_movement.forward && !idle_movement.backward &&
