@@ -73,9 +73,9 @@ foreach ($ProjectFile in @(
     "mod.cpp",
     "README.md",
     "ROADMAP.md",
-    "INICIAR_A3VR.cmd",
-    "INICIAR_A3VR_LAUNCHER.cmd",
-    "INICIAR_A3VR_SOG.cmd"
+    "START_A3VR.cmd",
+    "START_A3VR_LAUNCHER.cmd",
+    "START_A3VR_SOG.cmd"
 )) {
     Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot $ProjectFile) -Destination $ModDirectory
 }
@@ -101,7 +101,11 @@ try {
     Pop-Location
 }
 
-$RequiredPboEntries = @("config.cpp", "functions\fn_postInit.sqf")
+$RequiredPboEntries = @(
+    "config.cpp",
+    "functions\fn_preStart.sqf",
+    "functions\fn_postInit.sqf"
+)
 foreach ($Entry in $RequiredPboEntries) {
     if ($PboEntries -notcontains $Entry) {
         throw "Packaged PBO is missing required entry: $Entry"

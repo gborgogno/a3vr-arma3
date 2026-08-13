@@ -136,8 +136,9 @@ bool OpenXrTracker::initialize() {
         "A3VR_STEREO_MODE", stereo_mode, static_cast<DWORD>(std::size(stereo_mode)));
     sbs_mode_ = stereo_mode_size > 0 && stereo_mode_size < std::size(stereo_mode) &&
                 std::string_view(stereo_mode) == "sbs";
-    mono_mode_ = stereo_mode_size > 0 && stereo_mode_size < std::size(stereo_mode) &&
-                 std::string_view(stereo_mode) == "mono";
+    mono_mode_ = stereo_mode_size == 0 ||
+                 (stereo_mode_size < std::size(stereo_mode) &&
+                  std::string_view(stereo_mode) == "mono");
     const auto read_screen_value = [](const char* name, const float fallback,
                                       const float minimum, const float maximum) {
         char value[32]{};

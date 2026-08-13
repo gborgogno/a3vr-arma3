@@ -41,6 +41,22 @@ Get-ChildItem -LiteralPath $Target -Filter "A3VRRuntime_v*.exe" -File -ErrorActi
         }
         Remove-Item -LiteralPath $_.FullName -Force
     }
+$LegacyLaunchers = @(
+    "INICIAR_A3VR.cmd",
+    "INICIAR_A3VR_LAUNCHER.cmd",
+    "INICIAR_A3VR_SOG.cmd"
+)
+foreach ($LegacyLauncher in $LegacyLaunchers) {
+    $LegacyPath = Join-Path $Target $LegacyLauncher
+    if (Test-Path -LiteralPath $LegacyPath -PathType Leaf) {
+        if ([System.IO.Path]::GetFullPath((Split-Path -Parent $LegacyPath)).TrimEnd('\') -ne
+            $ResolvedTarget) {
+            throw "Refusing to remove legacy launcher outside install target: $LegacyPath"
+        }
+        Remove-Item -LiteralPath $LegacyPath -Force
+    }
+}
 Copy-Item -Path (Join-Path $Package "*") -Destination $Target -Recurse -Force
 Write-Host "Installed A3VR Hybrid at $Target"
-Write-Host "Use INICIAR_A3VR_LAUNCHER.cmd to select A3VR Hybrid with other mods."
+Write-Host "Enable A3VR Hybrid in the official Arma 3 Launcher; the VR runtime starts automatically."
+Write-Host "START_A3VR_LAUNCHER.cmd remains available as a diagnostic fallback."

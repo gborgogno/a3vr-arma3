@@ -13,6 +13,7 @@ class CfgFunctions {
     class A3VR {
         class Core {
             file = "\a3vr\functions";
+            class preStart { preStart = 1; };
             class postInit { postInit = 1; };
             class trackingLoop {};
             class drawLeftHand {};

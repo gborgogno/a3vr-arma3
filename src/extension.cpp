@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstring>
 #include <iomanip>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -77,6 +78,13 @@ std::string pose_as_sqf(const a3vr::TrackingSnapshot& pose) {
 }
 
 bool launch_server() {
+    static std::mutex launch_mutex;
+    const std::scoped_lock lock(launch_mutex);
+    if (HANDLE instance = OpenMutexW(
+            SYNCHRONIZE, FALSE, L"Local\\A3VR_Server_Instance_v30")) {
+        CloseHandle(instance);
+        return true;
+    }
     HMODULE module{};
     if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
                             GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,

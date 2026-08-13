@@ -28,6 +28,11 @@ int main(const int argc, char** argv) {
     const std::string start_status(output.data());
     assert(!start_status.empty());
     assert(!start_status.starts_with("error:"));
+    output.fill('\0');
+    RVExtension(output.data(), static_cast<unsigned int>(output.size()), "start");
+    const std::string repeated_start_status(output.data());
+    assert(!repeated_start_status.empty());
+    assert(!repeated_start_status.starts_with("error:"));
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     RVExtension(output.data(), static_cast<unsigned int>(output.size()), "status");

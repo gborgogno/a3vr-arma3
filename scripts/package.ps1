@@ -63,7 +63,10 @@ $ObsoleteArtifacts = @(
     "A3VRRuntime_v28.exe",
     "A3VRRuntime_v29.exe",
     "A3VRIPC_x64.dll",
-    "A3VRHost.exe"
+    "A3VRHost.exe",
+    "INICIAR_A3VR.cmd",
+    "INICIAR_A3VR_LAUNCHER.cmd",
+    "INICIAR_A3VR_SOG.cmd"
 )
 foreach ($Artifact in $ObsoleteArtifacts) {
     $ObsoletePath = Join-Path $ModDirectory $Artifact
@@ -78,9 +81,9 @@ Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "README.md") -Destination 
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "ROADMAP.md") -Destination $ModDirectory
 $PackagedScripts = Join-Path $ModDirectory "scripts"
 New-Item -ItemType Directory -Force -Path $PackagedScripts | Out-Null
-Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "INICIAR_A3VR.cmd") -Destination $ModDirectory
-Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "INICIAR_A3VR_LAUNCHER.cmd") -Destination $ModDirectory
-Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "INICIAR_A3VR_SOG.cmd") -Destination $ModDirectory
+Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "START_A3VR.cmd") -Destination $ModDirectory
+Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "START_A3VR_LAUNCHER.cmd") -Destination $ModDirectory
+Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "START_A3VR_SOG.cmd") -Destination $ModDirectory
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "scripts\launch-a3vr.ps1") -Destination $PackagedScripts
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "scripts\set-a3vr-profile.ps1") -Destination $PackagedScripts
 

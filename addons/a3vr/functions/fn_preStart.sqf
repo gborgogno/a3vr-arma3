@@ -2,5 +2,4 @@ if (!hasInterface) exitWith {};
 
 private _version = "A3VRCore" callExtension "version";
 private _status = "A3VRCore" callExtension "start";
-diag_log format ["[A3VR] Runtime post-init check: version=%1, status=%2", _version, _status];
-[] spawn A3VR_fnc_trackingLoop;
+diag_log format ["[A3VR] Early automatic runtime bootstrap: version=%1, status=%2", _version, _status];

@@ -40,6 +40,10 @@ public:
 
     void update(const ControllerInputState& state, std::uint32_t game_pid) noexcept;
     void release_all() noexcept;
+    [[nodiscard]] bool enabled() const noexcept { return enabled_; }
+    [[nodiscard]] bool smooth_turn_enabled() const noexcept {
+        return smooth_turn_enabled_;
+    }
 
 private:
     bool enabled_{};

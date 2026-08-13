@@ -26,7 +26,7 @@ A3VR_leftHandKeyEH = _display displayAddEventHandler ["KeyDown", {
     if (_key isEqualTo 65) exitWith {
         private _visible = !(missionNamespace getVariable ["A3VR_leftHandVisible", true]);
         missionNamespace setVariable ["A3VR_leftHandVisible", _visible, false];
-        systemChat format ["A3VR mão esquerda: %1", ["desligada", "ligada"] select _visible];
+        systemChat format ["A3VR left hand: %1", ["off", "on"] select _visible];
         true
     };
     false

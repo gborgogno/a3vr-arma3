@@ -5,12 +5,31 @@
 
 #include <cassert>
 #include <cmath>
+#include <windows.h>
 
 namespace {
 bool approximately_equal(const float a, const float b) { return std::abs(a - b) < 0.0001F; }
 }
 
 int main() {
+    SetEnvironmentVariableA("A3VR_CONTROLLER_AIM", nullptr);
+    SetEnvironmentVariableA("A3VR_CONTROLLER_BUTTONS", nullptr);
+    SetEnvironmentVariableA("A3VR_SMOOTH_TURN", nullptr);
+    const a3vr::ControllerAimOutput default_aim;
+    const a3vr::ControllerInputOutput default_input;
+    assert(default_aim.enabled());
+    assert(default_input.enabled());
+    assert(default_input.smooth_turn_enabled());
+
+    SetEnvironmentVariableA("A3VR_CONTROLLER_AIM", "0");
+    SetEnvironmentVariableA("A3VR_CONTROLLER_BUTTONS", "0");
+    SetEnvironmentVariableA("A3VR_SMOOTH_TURN", "0");
+    const a3vr::ControllerAimOutput disabled_aim;
+    const a3vr::ControllerInputOutput disabled_input;
+    assert(!disabled_aim.enabled());
+    assert(!disabled_input.enabled());
+    assert(!disabled_input.smooth_turn_enabled());
+
     const auto mapped = a3vr::xr_to_arma_position({1.0F, 2.0F, 3.0F});
     assert(approximately_equal(mapped.x, 1.0F) && approximately_equal(mapped.y, -3.0F) && approximately_equal(mapped.z, 2.0F));
 

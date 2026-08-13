@@ -20,6 +20,7 @@ behavior over full room-scale VR interaction.
 - Controller movement, firing, aiming, sprint, reload, interaction, fire mode
   and weapon switching.
 - Automatic VR-controller cursor in Arma menus and smooth body turning.
+- Automatic OpenXR runtime startup when the addon is enabled.
 - Early logo/menu capture with stable swapchain handover.
 - Automatic runtime cleanup when Arma exits.
 - Recenter and motion-aim toggles.
@@ -106,20 +107,23 @@ The CI PBO uses the pinned open-source `4d4a5852/a3lib.py` packer. Local
 development packaging continues to use the official Addon Builder through
 `scripts/package.ps1`.
 
-Start the installed package with `INICIAR_A3VR.cmd`. The launcher searches
-common Steam locations. For a custom library, either pass `-GameDirectory` to
-`scripts\launch-a3vr.ps1` or set `ARMA3_DIR`.
+For normal use, extract `@A3VR_Hybrid` into the Arma 3 directory, enable
+`A3VR - Arma 3 Hybrid VR` in the official launcher, disable BattlEye, and press
+Play. The addon's `preStart` function loads the native extension before the
+title screen, and the extension starts one `A3VRRuntime_v30.exe` instance
+automatically. No separate script is required.
 
-For S.O.G. Prairie Fire use `INICIAR_A3VR_SOG.cmd`. This direct preset loads
-both `@A3VR_Hybrid` and `vn`, avoiding a launcher preset in which the DLC is
-enabled but the A3VR addon is missing.
+`START_A3VR.cmd`, `START_A3VR_LAUNCHER.cmd`, and `START_A3VR_SOG.cmd` remain
+available as diagnostic or direct-launch fallbacks. For a custom Steam library,
+pass `-GameDirectory` to `scripts\launch-a3vr.ps1` or set `ARMA3_DIR`.
 
 ## Play with other mods
 
-Run `INICIAR_A3VR_LAUNCHER.cmd` from `@A3VR_Hybrid`. It starts the OpenXR
-runtime first and then opens the official Arma 3 Launcher. Enable
-`A3VR — Arma 3 Hybrid VR` together with CBA, ACE, RHS or any other desired
-mods, disable BattlEye, and launch the game normally.
+Enable `A3VR - Arma 3 Hybrid VR` together with CBA, ACE, RHS or any other
+desired mods in the official Arma 3 Launcher. The runtime starts automatically
+when Arma loads the A3VR addon. `START_A3VR_LAUNCHER.cmd` can still prestart the
+runtime before opening the official launcher when diagnosing headset or
+FreeTrack enumeration problems.
 
 Do not enable two A3VR variants in the same preset. In particular, leave the
 older `@A3VR` Stable build disabled when using `@A3VR_Hybrid`.

@@ -77,7 +77,7 @@ ControllerInputOutput::ControllerInputOutput() {
     const DWORD enabled_size = GetEnvironmentVariableA(
         "A3VR_CONTROLLER_BUTTONS", enabled_value,
         static_cast<DWORD>(std::size(enabled_value)));
-    enabled_ = enabled_size > 0 && std::string_view(enabled_value) == "1";
+    enabled_ = enabled_size == 0 || std::string_view(enabled_value) == "1";
 
     char proxy_value[8]{};
     const DWORD proxy_size = GetEnvironmentVariableA(
@@ -98,7 +98,7 @@ ControllerInputOutput::ControllerInputOutput() {
     const DWORD smooth_turn_size = GetEnvironmentVariableA(
         "A3VR_SMOOTH_TURN", smooth_turn_value,
         static_cast<DWORD>(std::size(smooth_turn_value)));
-    smooth_turn_enabled_ = smooth_turn_size > 0 &&
+    smooth_turn_enabled_ = smooth_turn_size == 0 ||
         std::string_view(smooth_turn_value) == "1";
 
     char turn_rate_value[32]{};

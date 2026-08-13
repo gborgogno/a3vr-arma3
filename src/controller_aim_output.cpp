@@ -97,8 +97,8 @@ ControllerAimOutput::ControllerAimOutput() {
     const DWORD enabled_size = GetEnvironmentVariableA(
         "A3VR_CONTROLLER_AIM", enabled_value,
         static_cast<DWORD>(std::size(enabled_value)));
-    configured_ = enabled_size > 0;
-    enabled_ = configured_ && std::string_view(enabled_value) == "1";
+    configured_ = true;
+    enabled_ = enabled_size == 0 || std::string_view(enabled_value) == "1";
 
     char scale_value[32]{};
     const DWORD scale_size = GetEnvironmentVariableA(
