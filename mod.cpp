@@ -6,4 +6,4 @@ tooltip = "A3VR — Arma 3 Hybrid VR";
 tooltipOwned = "A3VR — Arma 3 Hybrid VR";
 overview = "Experimental OpenXR presentation, 6DoF head tracking and motion-controller aiming for Arma 3.";
 author = "A3VR contributors";
-version = "1.12.1-experimental";
+version = "1.13.0-experimental";

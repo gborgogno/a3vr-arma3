@@ -1,0 +1,7 @@
+A3VR Hybrid 1.13.0
+
+- Added reversible VR Quality and Balanced graphics presets.
+- Increased default capture resolution to 2560x1440.
+- Improved shadow quality and distance, terrain detail, object distance, particles and clouds.
+- Reduced excessive sharpening to limit shimmer in the headset.
+- Completed MSVC static analysis, secret scanning, Git integrity checks and Microsoft Defender scans of source and packaged binaries.

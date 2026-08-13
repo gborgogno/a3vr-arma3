@@ -1,0 +1,20 @@
+A3VR Hybrid is an experimental OpenXR bridge for Arma 3.
+
+Current features:
+- Stable VR presentation with 6DoF head tracking
+- Right-hand motion-controller aiming
+- VR controller buttons and analog movement
+- Smooth turning
+- Reversible high-quality VR graphics preset
+- Compatibility with additional Arma 3 mods through the official Launcher
+
+Version: 1.13.0 experimental
+
+Important:
+- Intended for local/private testing.
+- Requires an active OpenXR headset and 64-bit Windows.
+- Do not load an older A3VR build at the same time.
+- Native DLL injection is required for D3D11 frame capture. Use without BattlEye and do not join protected multiplayer servers.
+- This is an unofficial community project and is not affiliated with Bohemia Interactive.
+
+The Quality profile captures Arma at 2560x1440, improves shadow distance and terrain/object detail, and backs up the original Arma settings before changing them.

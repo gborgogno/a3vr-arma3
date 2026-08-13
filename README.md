@@ -131,6 +131,16 @@ uses unique DLL, PBO, CfgPatches, CfgFunctions and mission-variable names so
 the official launcher can distinguish both installations, but two VR render
 bridges still cannot safely run inside the same Arma process.
 
+### VR graphics quality
+
+The packaged launcher applies a reversible `Quality` preset by default. It
+captures Arma at 2560x1440, raises shadow quality and distance, improves terrain
+and object detail, and reduces excessive sharpening that can shimmer in a
+headset. The original `Arma3.cfg` and player profile are copied to
+`*.a3vr-pre-vr-quality` before the first change. Run
+`scripts\set-a3vr-profile.ps1 -GraphicsPreset Balanced` for a lighter
+2304x1296 preset on slower GPUs.
+
 For a direct command-line launch, pass a semicolon-separated list:
 
 ```powershell

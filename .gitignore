@@ -11,6 +11,7 @@
 /video-analysis/
 /third_party/
 /assets/
+/standalone-mod/
 /INICIAR_A3VR_CONTROLLER_TEST.cmd
 /INICIAR_A3VR_WEAPON_TEST.cmd
 
@@ -22,6 +23,7 @@ Arma3*.cfg
 *.jpg
 *.jpeg
 *.png
+!/workshop/a3vr-hybrid-workshop-preview.jpg
 
 # Packaged Arma artifacts
 *.pbo
