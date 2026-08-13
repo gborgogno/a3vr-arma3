@@ -41,7 +41,7 @@ private:
     bool origin_valid_{};
     TrackedPose origin_{};
     float rotation_gain_{0.65F};
-    float body_recess_mm_{220.0F};
+    float body_recess_mm_{0.0F};
 };
 
 } // namespace a3vr

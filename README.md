@@ -12,10 +12,9 @@ behavior over full room-scale VR interaction.
 
 - OpenXR headset presentation.
 - 6DoF headset tracking through Arma's FreeTrack input path.
-- Generated visual copy of the equipped weapon, including current attachments,
-  aligned to the right controller while native Arma keeps authoritative fire.
-- Automatic weapon-model axis detection prevents X/Y-oriented models from
-  appearing sideways; F8 recalibrates its spatial basis with head tracking.
+- Native first-person weapon, hands, attachments, muzzle effects and
+  projectiles; no detached or floating weapon copy is created.
+- F8 recenters the VR spatial basis.
 - Left-hand 6DoF pose and controller-derived finger-curl telemetry.
 - Local left-hand calibration skeleton with articulated fingers (F7).
 - Controller movement, firing, aiming, sprint, reload, interaction, fire mode
@@ -161,12 +160,13 @@ capture. It creates a one-time `.a3vr-pre-fov` backup beside the profile before 
 it. Right-controller aim defaults to `420` counts/radian and smooth turn to `300`
 counts/second to avoid the previous over-sensitive movement.
 
-The default first-person combat path uses Arma's native soldier weapon instead of a
-detached visual proxy. The right controller drives the soldier's native aim; Arma remains
-authoritative for attachments, optics, recoil, muzzle effects and projectile origin. The
-VR viewpoint is moved `220` mm forward from the soldier origin so the native torso and legs
-remain behind the view while the ViewPilot hands, gloves and weapon stay attached. Set
-`A3VR_BODY_RECESS_MM` between `0` and `400` before launch to tune that body recess.
+The first-person combat path uses Arma's native soldier weapon and native ViewPilot
+animation. The right controller drives the authoritative soldier aim through Arma input;
+the trigger fires that same weapon. No detached visual weapon is created, so attachments,
+optics, recoil, muzzle effects and projectiles cannot diverge from what the player holds.
+The artificial body recess is disabled. Suppressing torso and limbs without suppressing
+the native weapon requires render-level ViewPilot filtering and is intentionally kept
+separate from weapon positioning.
 
 ## Limitations and safety
 
