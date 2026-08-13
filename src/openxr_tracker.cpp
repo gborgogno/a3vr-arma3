@@ -142,7 +142,9 @@ bool OpenXrTracker::initialize() {
         return parsed >= minimum && parsed <= maximum ? parsed : fallback;
     };
     mono_screen_width_ = read_screen_value(
-        "A3VR_MONO_SCREEN_WIDTH", 17.5F, 4.0F, 22.0F);
+        "A3VR_MONO_SCREEN_WIDTH", 25.4F, 4.0F, 30.0F);
+    mono_screen_height_ = read_screen_value(
+        "A3VR_MONO_SCREEN_HEIGHT", 14.3F, 2.0F, 20.0F);
     mono_screen_distance_ = read_screen_value(
         "A3VR_MONO_SCREEN_DISTANCE", 5.0F, 2.0F, 20.0F);
     (void)freetrack_.open();
@@ -810,20 +812,16 @@ void OpenXrTracker::run_frame() {
         if (game_texture_mutex_) game_texture_mutex_->ReleaseSync(0);
         if (copied_all) {
             if (mono_mode_) {
-                // One compositor-owned surface is shared by both eyes. This is
-                // the comfort path that avoids the divergent optical centres
-                // and eye strain of two independent projection submissions.
-                // 17.5 at 5.0 covers typical peripheral lens edges without the
-                // extreme scale of the former 25.4-wide panel.
+                // One compositor-owned surface is shared by both eyes. Keep
+                // the exact 25.4 x 14.3 geometry used by the protected v9
+                // stable runtime: its fixed dimensions were the user-validated
+                // comfort baseline. Do not derive height from the current game
+                // backbuffer or mutate this profile with weapon experiments.
                 mono_quad.space = view_space_;
                 mono_quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
                 mono_quad.pose.orientation = {0.0F, 0.0F, 0.0F, 1.0F};
                 mono_quad.pose.position = {0.0F, 0.0F, -mono_screen_distance_};
-                const float aspect = active_render_frame_.width > 0
-                    ? static_cast<float>(active_render_frame_.height) /
-                      static_cast<float>(active_render_frame_.width)
-                    : 9.0F / 16.0F;
-                mono_quad.size = {mono_screen_width_, mono_screen_width_ * aspect};
+                mono_quad.size = {mono_screen_width_, mono_screen_height_};
                 mono_quad.subImage.swapchain = eye_swapchains_[0].handle;
                 mono_quad.subImage.imageRect.offset = {0, 0};
                 mono_quad.subImage.imageRect.extent = {
