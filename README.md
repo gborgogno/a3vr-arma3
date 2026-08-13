@@ -152,6 +152,12 @@ at a distance of `5.0`. This camera baseline is intentionally independent from w
 controller experiments. `A3VR_MONO_SCREEN_WIDTH`, `A3VR_MONO_SCREEN_HEIGHT`, and
 `A3VR_MONO_SCREEN_DISTANCE` remain available only for deliberate experimental overrides.
 
+The default first-person combat path uses Arma's native soldier weapon instead of a
+detached visual proxy. The right controller drives the soldier's native aim; Arma remains
+authoritative for attachments, optics, recoil, muzzle effects and projectile origin. A
+local hands-only view hides the head, torso, equipment and legs while retaining the native
+arms, gloves and weapon. Full body visibility is restored outside internal on-foot view.
+
 ## Limitations and safety
 
 - This remains experimental and is not a native Arma 3 VR renderer.
