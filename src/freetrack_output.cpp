@@ -13,6 +13,7 @@ constexpr float kTranslationGain = 0.25F;
 constexpr float kMaximumYaw = 1.74532925F;   // 100 degrees
 constexpr float kMaximumPitch = 1.39626340F; // 80 degrees
 constexpr float kMaximumTranslationMm = 100.0F;
+constexpr float kMaximumRecessedTranslationMm = 450.0F;
 
 struct FreeTrackData {
     std::uint32_t data_id;
@@ -99,6 +100,13 @@ FreeTrackPose to_freetrack_pose(
     };
 }
 
+FreeTrackPose apply_body_recess(FreeTrackPose pose, const float forward_mm) noexcept {
+    pose.z = std::clamp(
+        pose.z + std::clamp(forward_mm, 0.0F, 400.0F),
+        -kMaximumRecessedTranslationMm, kMaximumRecessedTranslationMm);
+    return pose;
+}
+
 FreeTrackOutput::FreeTrackOutput() {
     char value[32]{};
     const DWORD size = GetEnvironmentVariableA(
@@ -107,6 +115,15 @@ FreeTrackOutput::FreeTrackOutput() {
     if (size > 0 && size < std::size(value)) {
         const float parsed = std::strtof(value, nullptr);
         if (parsed >= 0.10F && parsed <= 1.50F) rotation_gain_ = parsed;
+    }
+
+    char recess_value[32]{};
+    const DWORD recess_size = GetEnvironmentVariableA(
+        "A3VR_BODY_RECESS_MM", recess_value,
+        static_cast<DWORD>(std::size(recess_value)));
+    if (recess_size > 0 && recess_size < std::size(recess_value)) {
+        const float parsed = std::strtof(recess_value, nullptr);
+        if (parsed >= 0.0F && parsed <= 400.0F) body_recess_mm_ = parsed;
     }
 }
 
@@ -155,8 +172,9 @@ void FreeTrackOutput::publish(const TrackedPose& pose) {
         origin_ = pose;
         origin_valid_ = true;
     }
-    const FreeTrackPose converted = to_freetrack_pose(
-        relative_to(pose, origin_), rotation_gain_);
+    const FreeTrackPose converted = apply_body_recess(
+        to_freetrack_pose(relative_to(pose, origin_), rotation_gain_),
+        body_recess_mm_);
     auto& output = data_->data;
     output.yaw = output.raw_yaw = converted.yaw;
     output.pitch = output.raw_pitch = converted.pitch;

@@ -17,7 +17,6 @@ class CfgFunctions {
             class trackingLoop {};
             class drawLeftHand {};
             class leftHandDebugLoop {};
-            class handsOnlyLoop {};
         };
     };
 };

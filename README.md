@@ -154,9 +154,10 @@ controller experiments. `A3VR_MONO_SCREEN_WIDTH`, `A3VR_MONO_SCREEN_HEIGHT`, and
 
 The default first-person combat path uses Arma's native soldier weapon instead of a
 detached visual proxy. The right controller drives the soldier's native aim; Arma remains
-authoritative for attachments, optics, recoil, muzzle effects and projectile origin. A
-local hands-only view hides the head, torso, equipment and legs while retaining the native
-arms, gloves and weapon. Full body visibility is restored outside internal on-foot view.
+authoritative for attachments, optics, recoil, muzzle effects and projectile origin. The
+VR viewpoint is moved `220` mm forward from the soldier origin so the native torso and legs
+remain behind the view while the ViewPilot hands, gloves and weapon stay attached. Set
+`A3VR_BODY_RECESS_MM` between `0` and `400` before launch to tune that body recess.
 
 ## Limitations and safety
 

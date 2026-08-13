@@ -31,6 +31,11 @@ int main() {
     assert(approximately_equal(freetrack.y, 100.0F));
     assert(approximately_equal(freetrack.z, 100.0F));
 
+    const auto recessed = a3vr::apply_body_recess({}, 220.0F);
+    assert(approximately_equal(recessed.z, 220.0F));
+    const auto limited_recess = a3vr::apply_body_recess({}, 900.0F);
+    assert(approximately_equal(limited_recess.z, 400.0F));
+
     const float half_angle = 0.25F;
     tracked.position = {};
     tracked.orientation = {0.0F, std::sin(half_angle), 0.0F, std::cos(half_angle)};

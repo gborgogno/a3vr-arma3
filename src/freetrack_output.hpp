@@ -18,6 +18,7 @@ struct FreeTrackPose {
 
 FreeTrackPose to_freetrack_pose(
     const TrackedPose& pose, float rotation_gain = 0.48F) noexcept;
+FreeTrackPose apply_body_recess(FreeTrackPose pose, float forward_mm) noexcept;
 
 class FreeTrackOutput final {
 public:
@@ -40,6 +41,7 @@ private:
     bool origin_valid_{};
     TrackedPose origin_{};
     float rotation_gain_{0.48F};
+    float body_recess_mm_{220.0F};
 };
 
 } // namespace a3vr
