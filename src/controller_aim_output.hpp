@@ -45,7 +45,7 @@ private:
     ControllerAngles previous_{};
     float residual_x_{};
     float residual_y_{};
-    float counts_per_radian_{650.0F};
+    float counts_per_radian_{420.0F};
     float cursor_x_{0.5F};
     float cursor_y_{0.5F};
 };

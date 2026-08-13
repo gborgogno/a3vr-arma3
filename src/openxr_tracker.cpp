@@ -20,6 +20,12 @@ namespace {
 
 bool xr_ok(const XrResult result) noexcept { return XR_SUCCEEDED(result); }
 
+bool system_cursor_is_visible() noexcept {
+    CURSORINFO cursor_info{sizeof(cursor_info)};
+    return GetCursorInfo(&cursor_info) != FALSE &&
+           (cursor_info.flags & CURSOR_SHOWING) != 0;
+}
+
 TrackedPose convert_pose(const XrSpaceLocation& location) {
     const auto flags = location.locationFlags;
     return {
@@ -147,6 +153,8 @@ bool OpenXrTracker::initialize() {
         "A3VR_MONO_SCREEN_HEIGHT", 14.3F, 2.0F, 20.0F);
     mono_screen_distance_ = read_screen_value(
         "A3VR_MONO_SCREEN_DISTANCE", 5.0F, 2.0F, 20.0F);
+    ui_screen_width_ = read_screen_value(
+        "A3VR_UI_SCREEN_WIDTH", 9.5F, 4.0F, 20.0F);
     (void)freetrack_.open();
     set_status("initializing: enumerate extensions");
     std::uint32_t extension_count = 0;
@@ -812,16 +820,22 @@ void OpenXrTracker::run_frame() {
         if (game_texture_mutex_) game_texture_mutex_->ReleaseSync(0);
         if (copied_all) {
             if (mono_mode_) {
-                // One compositor-owned surface is shared by both eyes. Keep
-                // the exact 25.4 x 14.3 geometry used by the protected v9
-                // stable runtime: its fixed dimensions were the user-validated
-                // comfort baseline. Do not derive height from the current game
-                // backbuffer or mutate this profile with weapon experiments.
+                // One compositor-owned surface is shared by both eyes. Gameplay
+                // keeps the exact protected-v9 comfort geometry. Arma exposes an
+                // OS cursor in menus, so that state gets a narrower 16:9 surface
+                // which fits the complete UI inside the headset field of view.
                 mono_quad.space = view_space_;
                 mono_quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
                 mono_quad.pose.orientation = {0.0F, 0.0F, 0.0F, 1.0F};
                 mono_quad.pose.position = {0.0F, 0.0F, -mono_screen_distance_};
-                mono_quad.size = {mono_screen_width_, mono_screen_height_};
+                const bool ui_mode = system_cursor_is_visible();
+                const float capture_aspect = active_render_frame_.height > 0
+                    ? static_cast<float>(active_render_frame_.width) /
+                          static_cast<float>(active_render_frame_.height)
+                    : mono_screen_width_ / mono_screen_height_;
+                mono_quad.size = ui_mode
+                    ? XrExtent2Df{ui_screen_width_, ui_screen_width_ / capture_aspect}
+                    : XrExtent2Df{mono_screen_width_, mono_screen_height_};
                 mono_quad.subImage.swapchain = eye_swapchains_[0].handle;
                 mono_quad.subImage.imageRect.offset = {0, 0};
                 mono_quad.subImage.imageRect.extent = {

@@ -82,6 +82,7 @@ Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "INICIAR_A3VR.cmd") -Desti
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "INICIAR_A3VR_LAUNCHER.cmd") -Destination $ModDirectory
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "INICIAR_A3VR_SOG.cmd") -Destination $ModDirectory
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "scripts\launch-a3vr.ps1") -Destination $PackagedScripts
+Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "scripts\set-a3vr-profile.ps1") -Destination $PackagedScripts
 
 $AddonSource = Join-Path $ProjectRoot "addons\a3vr"
 & $AddonBuilder $AddonSource $AddonDestination -packonly -clear -prefix=a3vr

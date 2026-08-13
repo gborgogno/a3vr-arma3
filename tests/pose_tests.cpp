@@ -40,13 +40,13 @@ int main() {
     tracked.position = {};
     tracked.orientation = {0.0F, std::sin(half_angle), 0.0F, std::cos(half_angle)};
     const auto limited_rotation = a3vr::to_freetrack_pose(tracked);
-    assert(approximately_equal(limited_rotation.yaw, 0.24F));
+    assert(approximately_equal(limited_rotation.yaw, 0.325F));
     assert(approximately_equal(limited_rotation.pitch, 0.0F));
 
     tracked.orientation = {std::sin(half_angle), 0.0F, 0.0F, std::cos(half_angle)};
     const auto limited_vertical = a3vr::to_freetrack_pose(tracked);
     assert(approximately_equal(limited_vertical.yaw, 0.0F));
-    assert(approximately_equal(limited_vertical.pitch, 0.24F));
+    assert(approximately_equal(limited_vertical.pitch, 0.325F));
 
     a3vr::TrackedPose controller{};
     controller.orientation_valid = true;

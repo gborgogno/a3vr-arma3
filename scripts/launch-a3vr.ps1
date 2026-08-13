@@ -45,20 +45,26 @@ if (Get-Process -Name "A3VRRuntime_v*" -ErrorAction SilentlyContinue) {
     throw "An A3VR runtime is already running. Close it before retrying."
 }
 
+$ProfileTuner = Join-Path $PSScriptRoot "set-a3vr-profile.ps1"
+if (Test-Path -LiteralPath $ProfileTuner) {
+    & $ProfileTuner
+}
+
 $env:A3VR_STEREO_MODE = "mono"
 $env:A3VR_VISUAL_PROFILE = "stable-v9"
 $env:A3VR_MONO_SCREEN_WIDTH = "25.4"
 $env:A3VR_MONO_SCREEN_HEIGHT = "14.3"
 $env:A3VR_MONO_SCREEN_DISTANCE = "5.0"
+$env:A3VR_UI_SCREEN_WIDTH = "9.5"
 $env:A3VR_CONTROLLER_AIM = "1"
-$env:A3VR_CONTROLLER_COUNTS_PER_RADIAN = "650"
-$env:A3VR_HEAD_ROTATION_GAIN = "0.48"
+$env:A3VR_CONTROLLER_COUNTS_PER_RADIAN = "420"
+$env:A3VR_HEAD_ROTATION_GAIN = "0.65"
 $env:A3VR_BODY_RECESS_MM = "220"
 $env:A3VR_CONTROLLER_BUTTONS = "1"
 $env:A3VR_PROXY_WEAPON = "0"
 $env:A3VR_CONTROLLER_STICK_THRESHOLD = "0.25"
 $env:A3VR_SMOOTH_TURN = "1"
-$env:A3VR_SMOOTH_TURN_COUNTS_PER_SECOND = "420"
+$env:A3VR_SMOOTH_TURN_COUNTS_PER_SECOND = "300"
 $RuntimeProcess = Start-Process -FilePath $Runtime -WorkingDirectory $ModDirectory `
     -WindowStyle Hidden -PassThru
 try {

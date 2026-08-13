@@ -70,6 +70,7 @@ private:
     float mono_screen_width_{25.4F};
     float mono_screen_height_{14.3F};
     float mono_screen_distance_{5.0F};
+    float ui_screen_width_{9.5F};
 
     XrActionSet action_set_{XR_NULL_HANDLE};
     XrAction hand_pose_action_{XR_NULL_HANDLE};

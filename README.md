@@ -144,13 +144,22 @@ wrist position, axes, scale and finger inputs without replacing or moving
 Arma's weapon. The small red, green and blue lines show hand right, forward
 and up respectively. A skinned P3D glove replaces this proxy after calibration.
 
-Head rotation defaults to a comfort-oriented `0.48` gain. Advanced users can override it by
+Head rotation defaults to a natural-but-damped `0.65` gain. Advanced users can override it by
 setting `A3VR_HEAD_ROTATION_GAIN` between `0.10` and `1.50` before launching.
 Comfort mono is submitted once as a compositor-owned surface shared by both eyes. The
 default `stable-v9` profile preserves the protected runtime's exact `25.4 x 14.3` surface
-at a distance of `5.0`. This camera baseline is intentionally independent from weapon and
-controller experiments. `A3VR_MONO_SCREEN_WIDTH`, `A3VR_MONO_SCREEN_HEIGHT`, and
-`A3VR_MONO_SCREEN_DISTANCE` remain available only for deliberate experimental overrides.
+at a distance of `5.0` during gameplay. When Arma displays its cursor, the compositor
+automatically narrows that surface to `9.5` while preserving the capture aspect ratio, so
+menus and launch screens fit in view. This camera baseline is intentionally independent
+from weapon and controller experiments. `A3VR_MONO_SCREEN_WIDTH`,
+`A3VR_MONO_SCREEN_HEIGHT`, `A3VR_MONO_SCREEN_DISTANCE`, and `A3VR_UI_SCREEN_WIDTH`
+remain available for deliberate overrides.
+
+The launcher calibrates the active Arma profile to `fovTop=1.2` and
+`fovLeft=2.1333333`, preserving the exact 16:9 relationship used by the 1920x1080
+capture. It creates a one-time `.a3vr-pre-fov` backup beside the profile before changing
+it. Right-controller aim defaults to `420` counts/radian and smooth turn to `300`
+counts/second to avoid the previous over-sensitive movement.
 
 The default first-person combat path uses Arma's native soldier weapon instead of a
 detached visual proxy. The right controller drives the soldier's native aim; Arma remains
