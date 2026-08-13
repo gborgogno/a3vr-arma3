@@ -95,6 +95,17 @@ existing `@A3VR` installation. Pass `-GameDirectory` when Arma is outside the
 common Steam locations. The package script accepts a custom Addon Builder path
 through `-AddonBuilder`.
 
+## Releases
+
+Tags in the `vMAJOR.MINOR.PATCH` format trigger the release CI/CD. The pipeline
+checks the version declared in `CMakeLists.txt`, builds and tests the runtime,
+packages an installable `@A3VR_Hybrid` with `a3vr.pbo`, and publishes a ZIP plus
+its SHA-256 file in the GitHub Release.
+
+The CI PBO uses the pinned open-source `4d4a5852/a3lib.py` packer. Local
+development packaging continues to use the official Addon Builder through
+`scripts/package.ps1`.
+
 Start the installed package with `INICIAR_A3VR.cmd`. The launcher searches
 common Steam locations. For a custom library, either pass `-GameDirectory` to
 `scripts\launch-a3vr.ps1` or set `ARMA3_DIR`.
