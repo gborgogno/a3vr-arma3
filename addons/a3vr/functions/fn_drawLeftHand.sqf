@@ -4,7 +4,7 @@
     the current headset basis, then positionCameraToWorld applies Arma's live
     camera transform. This prevents body yaw from rotating the hand twice.
 */
-private _sample = missionNamespace getVariable ["A3VR_tracking", []];
+private _sample = missionNamespace getVariable ["A3VRHybrid_tracking", []];
 if (!(_sample isEqualType []) || {count _sample < 10}) exitWith {};
 
 private _head = _sample # 4;

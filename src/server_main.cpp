@@ -49,11 +49,11 @@ std::filesystem::path extension_path() {
     wchar_t executable[MAX_PATH]{};
     const DWORD length = GetModuleFileNameW(nullptr, executable, MAX_PATH);
     if (length == 0 || length >= MAX_PATH) return {};
-    return std::filesystem::path(executable).parent_path() / L"A3VRCore_x64.dll";
+    return std::filesystem::path(executable).parent_path() / L"A3VRHybridCore_x64.dll";
 }
 
 bool preload_extension(const DWORD pid, const std::filesystem::path& path) noexcept {
-    if (module_is_loaded(pid, L"A3VRCore_x64.dll")) return true;
+    if (module_is_loaded(pid, L"A3VRHybridCore_x64.dll")) return true;
     if (path.empty() || !std::filesystem::exists(path)) return false;
     HANDLE process = OpenProcess(PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION |
         PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ, FALSE, pid);
@@ -83,7 +83,7 @@ bool preload_extension(const DWORD pid, const std::filesystem::path& path) noexc
     }
     if (remote_path != nullptr) VirtualFreeEx(process, remote_path, 0, MEM_RELEASE);
     CloseHandle(process);
-    return loaded || module_is_loaded(pid, L"A3VRCore_x64.dll");
+    return loaded || module_is_loaded(pid, L"A3VRHybridCore_x64.dll");
 }
 
 } // namespace

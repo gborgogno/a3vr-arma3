@@ -1,6 +1,6 @@
 class CfgPatches {
-    class A3VR_Core {
-        name = "A3VR Core";
+    class A3VR_Hybrid_Core {
+        name = "A3VR Hybrid Core";
         author = "A3VR contributors";
         requiredVersion = 2.12;
         requiredAddons[] = {"A3_Functions_F"};
@@ -10,9 +10,9 @@ class CfgPatches {
 };
 
 class CfgFunctions {
-    class A3VR {
+    class A3VRHybrid {
         class Core {
-            file = "\a3vr\functions";
+            file = "\a3vr_hybrid\functions";
             class preStart { preStart = 1; };
             class postInit { postInit = 1; };
             class trackingLoop {};

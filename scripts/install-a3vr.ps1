@@ -56,7 +56,24 @@ foreach ($LegacyLauncher in $LegacyLaunchers) {
         Remove-Item -LiteralPath $LegacyPath -Force
     }
 }
+$LegacyHybridFiles = @(
+    (Join-Path $Target "A3VRCore_x64.dll"),
+    (Join-Path $Target "addons\a3vr.pbo")
+)
+foreach ($LegacyHybridFile in $LegacyHybridFiles) {
+    if (Test-Path -LiteralPath $LegacyHybridFile -PathType Leaf) {
+        $ResolvedLegacyFile = [System.IO.Path]::GetFullPath($LegacyHybridFile)
+        if (-not $ResolvedLegacyFile.StartsWith(
+                "$ResolvedTarget\", [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "Refusing to remove legacy Hybrid file outside install target: $LegacyHybridFile"
+        }
+        Remove-Item -LiteralPath $LegacyHybridFile -Force
+    }
+}
 Copy-Item -Path (Join-Path $Package "*") -Destination $Target -Recurse -Force
 Write-Host "Installed A3VR Hybrid at $Target"
 Write-Host "Enable A3VR Hybrid in the official Arma 3 Launcher; the VR runtime starts automatically."
 Write-Host "START_A3VR_LAUNCHER.cmd remains available as a diagnostic fallback."
+if (Test-Path -LiteralPath (Join-Path $GameDirectory "@A3VR")) {
+    Write-Warning "Legacy @A3VR is installed. Keep it disabled whenever @A3VR_Hybrid is enabled."
+}

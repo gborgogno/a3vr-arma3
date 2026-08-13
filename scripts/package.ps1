@@ -14,7 +14,7 @@ if ([string]::IsNullOrWhiteSpace($BuildDirectory)) {
 }
 $ModDirectory = Join-Path $ProjectRoot "dist\@A3VR_Hybrid"
 $AddonDestination = Join-Path $ModDirectory "addons"
-$NativeDll = Join-Path $BuildDirectory "$Configuration\A3VRCore_x64.dll"
+$NativeDll = Join-Path $BuildDirectory "$Configuration\A3VRHybridCore_x64.dll"
 $ServerExe = Join-Path $BuildDirectory "$Configuration\A3VRRuntime_v30.exe"
 
 if (-not (Test-Path -LiteralPath $NativeDll)) {
@@ -33,6 +33,7 @@ if (-not (Test-Path -LiteralPath $AddonBuilder)) {
 New-Item -ItemType Directory -Force -Path $AddonDestination | Out-Null
 $ObsoleteArtifacts = @(
     "A3VR_x64.dll",
+    "A3VRCore_x64.dll",
     "A3VRBridge_x64.dll",
     "A3VRClient_x64.dll",
     "A3VRServer.exe",
@@ -74,6 +75,10 @@ foreach ($Artifact in $ObsoleteArtifacts) {
         Remove-Item -LiteralPath $ObsoletePath -Force
     }
 }
+$LegacyPbo = Join-Path $AddonDestination "a3vr.pbo"
+if (Test-Path -LiteralPath $LegacyPbo -PathType Leaf) {
+    Remove-Item -LiteralPath $LegacyPbo -Force
+}
 Copy-Item -Force -LiteralPath $NativeDll -Destination $ModDirectory
 Copy-Item -Force -LiteralPath $ServerExe -Destination $ModDirectory
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "mod.cpp") -Destination $ModDirectory
@@ -88,12 +93,16 @@ Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "scripts\launch-a3vr.ps1")
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "scripts\set-a3vr-profile.ps1") -Destination $PackagedScripts
 
 $AddonSource = Join-Path $ProjectRoot "addons\a3vr"
-& $AddonBuilder $AddonSource $AddonDestination -packonly -clear -prefix=a3vr
+& $AddonBuilder $AddonSource $AddonDestination -packonly -clear -prefix=a3vr_hybrid
 if ($LASTEXITCODE -ne 0) {
     throw "Addon Builder failed with exit code $LASTEXITCODE"
 }
 
-$Pbo = Join-Path $AddonDestination "a3vr.pbo"
+$Pbo = Join-Path $AddonDestination "a3vr_hybrid.pbo"
+$AddonBuilderPbo = Join-Path $AddonDestination "a3vr.pbo"
+if (Test-Path -LiteralPath $AddonBuilderPbo -PathType Leaf) {
+    Move-Item -LiteralPath $AddonBuilderPbo -Destination $Pbo -Force
+}
 if (-not (Test-Path -LiteralPath $Pbo)) {
     throw "Addon Builder finished without producing $Pbo"
 }

@@ -43,7 +43,7 @@ $AddonDestination = Join-Path $ModDirectory "addons"
 $ZipPath = Join-Path $OutputDirectory "$PackageBaseName.zip"
 $HashPath = "$ZipPath.sha256"
 
-$NativeDll = Join-Path $BuildDirectory "$Configuration\A3VRCore_x64.dll"
+$NativeDll = Join-Path $BuildDirectory "$Configuration\A3VRHybridCore_x64.dll"
 $RuntimeExe = Join-Path $BuildDirectory "$Configuration\A3VRRuntime_v30.exe"
 foreach ($RequiredFile in @($NativeDll, $RuntimeExe, $A3LibScript)) {
     if (-not (Test-Path -LiteralPath $RequiredFile -PathType Leaf)) {
@@ -85,11 +85,11 @@ foreach ($ScriptFile in @("launch-a3vr.ps1", "set-a3vr-profile.ps1")) {
     Copy-Item -Force -LiteralPath (Join-Path $PSScriptRoot $ScriptFile) -Destination $PackagedScripts
 }
 
-$PboPath = Join-Path $AddonDestination "a3vr.pbo"
+$PboPath = Join-Path $AddonDestination "a3vr_hybrid.pbo"
 $AddonSource = Join-Path $ProjectRoot "addons\a3vr"
 Push-Location $AddonSource
 try {
-    & $Python $A3LibScript pbo -c -f $PboPath -e prefix a3vr config.cpp functions
+    & $Python $A3LibScript pbo -c -f $PboPath -e prefix a3vr_hybrid config.cpp functions
     if ($LASTEXITCODE -ne 0) {
         throw "PBO packer failed with exit code $LASTEXITCODE."
     }

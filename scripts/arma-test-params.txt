@@ -6,4 +6,4 @@
 -window
 -noPause
 -mod=@A3VR_Hybrid
--init=diag_log ("A3VR_TEST_VERSION:" + ("A3VRCore" callExtension "version")); diag_log ("A3VR_TEST_START:" + ("A3VRCore" callExtension "start")); diag_log ("A3VR_TEST_PROBE:" + ("A3VRCore" callExtension "probe"));
+-init=diag_log ("A3VR_TEST_VERSION:" + ("A3VRHybridCore" callExtension "version")); diag_log ("A3VR_TEST_START:" + ("A3VRHybridCore" callExtension "start")); diag_log ("A3VR_TEST_PROBE:" + ("A3VRHybridCore" callExtension "probe"));

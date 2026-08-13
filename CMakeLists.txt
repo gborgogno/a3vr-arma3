@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(A3VR VERSION 1.12.0 LANGUAGES C CXX)
+project(A3VR VERSION 1.12.1 LANGUAGES C CXX)
 
 if(NOT WIN32 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
     message(FATAL_ERROR "A3VR currently requires 64-bit Windows.")
@@ -50,7 +50,7 @@ target_compile_definitions(A3VR PRIVATE
 target_compile_options(A3VR PRIVATE /W4 /permissive- /EHsc /utf-8)
 target_link_libraries(A3VR PRIVATE minhook d3d11 dxgi)
 set_target_properties(A3VR PROPERTIES
-    OUTPUT_NAME "A3VRCore_x64"
+    OUTPUT_NAME "A3VRHybridCore_x64"
     PREFIX ""
 )
 

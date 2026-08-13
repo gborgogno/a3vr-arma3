@@ -58,10 +58,10 @@ activates those render paths through its native optics camera.
 
 - `A3VRRuntime_v30.exe` owns the OpenXR session, tracks the headset and
   controllers, submits frames and publishes FreeTrack data.
-- `A3VRCore_x64.dll` is loaded by Arma, captures the D3D11 backbuffer and
+- `A3VRHybridCore_x64.dll` is loaded by Arma, captures the D3D11 backbuffer and
   exchanges tracking/render data with the runtime through shared memory.
 - The small SQF addon starts the bridge and exposes the current OpenXR sample
-  as `missionNamespace getVariable "A3VR_tracking"`.
+  as `missionNamespace getVariable "A3VRHybrid_tracking"`.
 
 OpenXR and MinHook are fetched from pinned upstream commits during the CMake
 configure step; generated build trees and third-party installers are not
@@ -81,7 +81,7 @@ committed.
 .\scripts\build.ps1 -Configuration Release
 ```
 
-The script configures CMake, builds `A3VRCore_x64.dll` and
+The script configures CMake, builds `A3VRHybridCore_x64.dll` and
 `A3VRRuntime_v30.exe`, then runs the automated math and extension smoke tests.
 
 ## Package and install
@@ -100,7 +100,7 @@ through `-AddonBuilder`.
 
 Tags in the `vMAJOR.MINOR.PATCH` format trigger the release CI/CD. The pipeline
 checks the version declared in `CMakeLists.txt`, builds and tests the runtime,
-packages an installable `@A3VR_Hybrid` with `a3vr.pbo`, and publishes a ZIP plus
+packages an installable `@A3VR_Hybrid` with `a3vr_hybrid.pbo`, and publishes a ZIP plus
 its SHA-256 file in the GitHub Release.
 
 The CI PBO uses the pinned open-source `4d4a5852/a3lib.py` packer. Local
@@ -126,7 +126,10 @@ runtime before opening the official launcher when diagnosing headset or
 FreeTrack enumeration problems.
 
 Do not enable two A3VR variants in the same preset. In particular, leave the
-older `@A3VR` Stable build disabled when using `@A3VR_Hybrid`.
+older `@A3VR` Stable build disabled when using `@A3VR_Hybrid`. Version 1.12.1+
+uses unique DLL, PBO, CfgPatches, CfgFunctions and mission-variable names so
+the official launcher can distinguish both installations, but two VR render
+bridges still cannot safely run inside the same Arma process.
 
 For a direct command-line launch, pass a semicolon-separated list:
 
@@ -140,12 +143,12 @@ the resulting `-mod` list.
 ## Extension commands
 
 ```sqf
-"A3VRCore" callExtension "version";
-"A3VRCore" callExtension "start";
-"A3VRCore" callExtension "status";
-"A3VRCore" callExtension "capture";
-private _sample = parseSimpleArray ("A3VRCore" callExtension "pose");
-"A3VRCore" callExtension "probe";
+"A3VRHybridCore" callExtension "version";
+"A3VRHybridCore" callExtension "start";
+"A3VRHybridCore" callExtension "status";
+"A3VRHybridCore" callExtension "capture";
+private _sample = parseSimpleArray ("A3VRHybridCore" callExtension "pose");
+"A3VRHybridCore" callExtension "probe";
 ```
 
 The `pose` result keeps its existing fields and appends a five-value
