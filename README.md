@@ -26,10 +26,33 @@ in development.
 6. Start the game normally. Press `F8` once in game to recenter. If the right
    controller does not move the aim, press `F9` once.
 
-The addon starts the OpenXR runtime bridge automatically. A separate launch
-script is not required for normal use. Keyboard and mouse should remain
-available because Arma has many contextual commands that do not yet have VR
-bindings.
+The addon starts the OpenXR runtime bridge automatically, so a separate script
+is not required for the bridge itself. The FOV/graphics profile is different:
+subscribing to the Workshop item and enabling it in the Launcher does **not**
+apply that profile automatically. With Arma closed, run
+`START_A3VR_LAUNCHER.cmd` from the mod directory once, or apply the settings
+manually. The supplied script creates backups before changing the Arma profile.
+
+## Bindings, FreeTrack and FOV setup
+
+- VR-controller mappings are built into the A3VR runtime. A Steam Input profile
+  is not required.
+- The mappings send Arma's native mouse, keyboard and controller actions. They
+  assume the relevant default Arma bindings; customized bindings can cause an
+  action to stop matching its documented VR button.
+- FreeTrack must still be enabled manually in Arma's controller/device settings.
+- Loading the Workshop addon starts A3VR, but does not execute the external
+  FOV/graphics configuration script.
+- Run `START_A3VR_LAUNCHER.cmd` with Arma closed to apply the supplied FOV and
+  graphics profile, then continue through the official Launcher. Reapply it if
+  Arma or another mod later replaces those profile values.
+- For manual configuration, see the community guide
+  [How to increase FOV in ARMA](https://steamcommunity.com/sharedfiles/filedetails/?id=1731376270).
+  It is an external reference, not an A3VR dependency; back up the profile
+  before making manual changes.
+
+Keyboard and mouse should remain available because Arma has many contextual
+commands that do not yet have VR bindings.
 
 ## Runtime compatibility
 
