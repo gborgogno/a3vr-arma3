@@ -1,0 +1,9 @@
+A3VR Hybrid 1.13.1-alpha.1 public alpha
+
+- Added the sharp 17.5 x 9.84375 comfort-mono presentation profile.
+- Raised the default Arma FOV to reduce excessive zoom.
+- Added a 3840x2160 internal Ultra preset with 1920x1080 borderless UI output.
+- Added a local Meta OpenXR override with system-runtime fallback.
+- Corrected Right B to throw the selected grenade.
+- Preserved native weapon attachments, projectiles and muzzle effects.
+- Documented controller binds, tested companion mods and alpha limitations.

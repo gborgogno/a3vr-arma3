@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(A3VR VERSION 1.13.0 LANGUAGES C CXX)
+project(A3VR VERSION 1.13.1 LANGUAGES C CXX)
 
 if(NOT WIN32 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
     message(FATAL_ERROR "A3VR currently requires 64-bit Windows.")
@@ -105,4 +105,5 @@ add_test(NAME a3vr_extension_smoke COMMAND a3vr_extension_smoke)
 
 install(TARGETS A3VR A3VRServer RUNTIME DESTINATION "@A3VR_Hybrid")
 install(DIRECTORY addons DESTINATION "@A3VR_Hybrid")
-install(FILES mod.cpp README.md ROADMAP.md DESTINATION "@A3VR_Hybrid")
+install(FILES mod.cpp README.md ROADMAP.md ALPHA_NOTES.md a3vr-runtime.ini
+        DESTINATION "@A3VR_Hybrid")

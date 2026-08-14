@@ -32,8 +32,9 @@ jobs:
             throw 'Could not read A3VR version from CMakeLists.txt.'
           }
           $expectedTag = "v$($Matches[1])"
-          if ($env:GITHUB_REF_NAME -ne $expectedTag) {
-            throw "Tag $env:GITHUB_REF_NAME does not match project version $expectedTag."
+          if ($env:GITHUB_REF_NAME -ne $expectedTag -and
+              $env:GITHUB_REF_NAME -notmatch "^$([regex]::Escape($expectedTag))-[0-9A-Za-z.-]+$") {
+            throw "Tag $env:GITHUB_REF_NAME does not match project version $expectedTag or a valid prerelease tag."
           }
       - name: Checkout pinned PBO packer
         if: startsWith(github.ref, 'refs/tags/')
@@ -45,12 +46,19 @@ jobs:
       - name: Package installable mod
         if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
-        run: >-
-          ./scripts/package-release.ps1
-          -Configuration Release
-          -BuildDirectory build-current
-          -A3LibScript .ci/a3lib/a3lib.py
-          -OutputDirectory release
+        run: |
+          $cmake = Get-Content -Raw CMakeLists.txt
+          $null = $cmake -match 'project\(A3VR VERSION ([0-9]+\.[0-9]+\.[0-9]+)'
+          $baseTag = "v$($Matches[1])"
+          $label = if ($env:GITHUB_REF_NAME.StartsWith("$baseTag-")) {
+            $env:GITHUB_REF_NAME.Substring($baseTag.Length + 1)
+          } else { "" }
+          ./scripts/package-release.ps1 `
+            -Configuration Release `
+            -BuildDirectory build-current `
+            -A3LibScript .ci/a3lib/a3lib.py `
+            -OutputDirectory release `
+            -PrereleaseLabel $label
       - name: Upload packaged artifact
         if: startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@v4
@@ -72,7 +80,14 @@ jobs:
           if ($assets.Count -ne 2) {
             throw "Expected ZIP and SHA-256 assets, found $($assets.Count)."
           }
-          gh release create $env:GITHUB_REF_NAME @assets `
-            --verify-tag `
-            --title "A3VR $env:GITHUB_REF_NAME" `
-            --generate-notes
+          if ($env:GITHUB_REF_NAME.Contains('-')) {
+            gh release create $env:GITHUB_REF_NAME @assets `
+              --verify-tag --prerelease `
+              --title "A3VR $env:GITHUB_REF_NAME" `
+              --generate-notes
+          } else {
+            gh release create $env:GITHUB_REF_NAME @assets `
+              --verify-tag `
+              --title "A3VR $env:GITHUB_REF_NAME" `
+              --generate-notes
+          }

@@ -149,9 +149,9 @@ bool OpenXrTracker::initialize() {
         return parsed >= minimum && parsed <= maximum ? parsed : fallback;
     };
     mono_screen_width_ = read_screen_value(
-        "A3VR_MONO_SCREEN_WIDTH", 25.4F, 4.0F, 30.0F);
+        "A3VR_MONO_SCREEN_WIDTH", 17.5F, 4.0F, 30.0F);
     mono_screen_height_ = read_screen_value(
-        "A3VR_MONO_SCREEN_HEIGHT", 14.3F, 2.0F, 20.0F);
+        "A3VR_MONO_SCREEN_HEIGHT", 9.84375F, 2.0F, 20.0F);
     mono_screen_distance_ = read_screen_value(
         "A3VR_MONO_SCREEN_DISTANCE", 5.0F, 2.0F, 20.0F);
     ui_screen_width_ = read_screen_value(
@@ -184,11 +184,15 @@ bool OpenXrTracker::initialize() {
     instance_info.applicationInfo.applicationVersion = 1;
     strcpy_s(instance_info.applicationInfo.engineName, "Real Virtuality 4");
     instance_info.applicationInfo.engineVersion = 1;
-    instance_info.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
+    // SteamVR on some Meta Link installations still advertises OpenXR 1.0.
+    // A3VR only uses 1.0 core commands, so request the compatible API level.
+    instance_info.applicationInfo.apiVersion = XR_API_VERSION_1_0;
     instance_info.enabledExtensionCount = 1;
     instance_info.enabledExtensionNames = enabled_extensions;
-    if (!xr_ok(xrCreateInstance(&instance_info, &instance_))) {
-        set_error("xrCreateInstance failed; verify the active OpenXR runtime");
+    const XrResult create_instance_result = xrCreateInstance(&instance_info, &instance_);
+    if (!xr_ok(create_instance_result)) {
+        set_error("xrCreateInstance failed (" +
+                  std::to_string(static_cast<std::int32_t>(create_instance_result)) + ")");
         return false;
     }
 

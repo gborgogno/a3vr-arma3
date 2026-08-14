@@ -1,8 +1,8 @@
 param(
-    [double]$FovTop = 1.2,
-    [double]$FovLeft = 2.1333333,
-    [ValidateSet("Quality", "Balanced")]
-    [string]$GraphicsPreset = "Quality"
+    [double]$FovTop = 2.5,
+    [double]$FovLeft = 4.4444444,
+    [ValidateSet("Ultra", "Quality", "Balanced")]
+    [string]$GraphicsPreset = "Ultra"
 )
 
 $ErrorActionPreference = "Stop"
@@ -25,7 +25,28 @@ if ($null -eq $Profile) {
 }
 
 $Presets = @{
+    Ultra = @{
+        OutputWidth = 1920
+        OutputHeight = 1080
+        DisplayMode = 2
+        RenderWidth = 3840
+        RenderHeight = 2160
+        MultiSampleCount = 2
+        SceneComplexity = 1200000
+        ShadowDistance = 80
+        ViewDistance = 3000
+        ObjectViewDistance = 1800
+        PipViewDistance = 1200
+        TerrainGrid = 3.125
+        ShadowQuality = 4
+        ParticlesQuality = 2
+        CloudsQuality = 3
+        Sharpen = 0.9
+    }
     Quality = @{
+        OutputWidth = 1920
+        OutputHeight = 1080
+        DisplayMode = 2
         RenderWidth = 2560
         RenderHeight = 1440
         MultiSampleCount = 2
@@ -41,6 +62,9 @@ $Presets = @{
         Sharpen = 1.25
     }
     Balanced = @{
+        OutputWidth = 1920
+        OutputHeight = 1080
+        DisplayMode = 2
         RenderWidth = 2304
         RenderHeight = 1296
         MultiSampleCount = 1
@@ -104,6 +128,15 @@ $ConfigBackup = "not created"
 if (Test-Path -LiteralPath $ArmaConfig -PathType Leaf) {
     $ConfigText = [IO.File]::ReadAllText($ArmaConfig)
     $ConfigValues = [ordered]@{
+        displayMode = [string]$Selected.DisplayMode
+        winX = "0"
+        winY = "0"
+        winWidth = [string]$Selected.OutputWidth
+        winHeight = [string]$Selected.OutputHeight
+        winDefWidth = [string]$Selected.OutputWidth
+        winDefHeight = [string]$Selected.OutputHeight
+        fullScreenWidth = [string]$Selected.OutputWidth
+        fullScreenHeight = [string]$Selected.OutputHeight
         renderWidth = [string]$Selected.RenderWidth
         renderHeight = [string]$Selected.RenderHeight
         multiSampleCount = [string]$Selected.MultiSampleCount
@@ -136,5 +169,6 @@ if (Test-Path -LiteralPath $ArmaConfig -PathType Leaf) {
 }
 
 Write-Host "A3VR applied the $GraphicsPreset VR graphics preset to $($Profile.Name)."
-Write-Host "Render target: $($Selected.RenderWidth)x$($Selected.RenderHeight); shadows: quality $($Selected.ShadowQuality), $($Selected.ShadowDistance)m."
+Write-Host "VR capture: $($Selected.OutputWidth)x$($Selected.OutputHeight); render target: $($Selected.RenderWidth)x$($Selected.RenderHeight)."
+Write-Host "Shadows: quality $($Selected.ShadowQuality), $($Selected.ShadowDistance)m."
 Write-Host "Backups: $ProfileBackup and $ConfigBackup"

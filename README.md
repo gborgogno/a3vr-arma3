@@ -1,5 +1,8 @@
 # A3VR
 
+**Current public test build: 1.13.1-alpha.1.** This is an early community
+alpha, not a native VR port and not an official Bohemia Interactive product.
+
 Experimental hybrid VR bridge for 64-bit Arma 3. A3VR presents the game's
 D3D11 output through OpenXR, publishes headset movement through FreeTrack for
 6DoF head tracking, and maps OpenXR controllers to Arma's native input.
@@ -38,7 +41,7 @@ controllers where matching OpenXR paths are available.
 | Right grip | Aim down sights |
 | Right A | Reload |
 | Right thumbstick click | Fire mode |
-| Right B | Vault / step over |
+| Right B | Throw grenade |
 | Left thumbstick | Move and strafe |
 | Right thumbstick horizontal | Smooth camera/body turn |
 | Right thumbstick up/down | Stand / crouch |
@@ -98,7 +101,7 @@ through `-AddonBuilder`.
 
 ## Releases
 
-Tags in the `vMAJOR.MINOR.PATCH` format trigger the release CI/CD. The pipeline
+Tags in the `vMAJOR.MINOR.PATCH` or `vMAJOR.MINOR.PATCH-alpha.N` format trigger the release CI/CD. The pipeline
 checks the version declared in `CMakeLists.txt`, builds and tests the runtime,
 packages an installable `@A3VR_Hybrid` with `a3vr_hybrid.pbo`, and publishes a ZIP plus
 its SHA-256 file in the GitHub Release.
@@ -133,13 +136,13 @@ bridges still cannot safely run inside the same Arma process.
 
 ### VR graphics quality
 
-The packaged launcher applies a reversible `Quality` preset by default. It
-captures Arma at 2560x1440, raises shadow quality and distance, improves terrain
-and object detail, and reduces excessive sharpening that can shimmer in a
-headset. The original `Arma3.cfg` and player profile are copied to
+The packaged launcher applies a reversible `Ultra` preset by default. It keeps
+the borderless desktop/UI capture at 1920x1080 while rendering Arma internally
+at 3840x2160, with a 3000 m view distance, 1800 m object distance and Ultra
+shadows to 80 m. The original `Arma3.cfg` and player profile are copied to
 `*.a3vr-pre-vr-quality` before the first change. Run
-`scripts\set-a3vr-profile.ps1 -GraphicsPreset Balanced` for a lighter
-2304x1296 preset on slower GPUs.
+`scripts\set-a3vr-profile.ps1 -GraphicsPreset Quality` for 2560x1440 or
+`-GraphicsPreset Balanced` for 2304x1296 on slower GPUs.
 
 For a direct command-line launch, pass a semicolon-separated list:
 
@@ -174,16 +177,17 @@ and up respectively. A skinned P3D glove replaces this proxy after calibration.
 Head rotation defaults to a natural-but-damped `0.65` gain. Advanced users can override it by
 setting `A3VR_HEAD_ROTATION_GAIN` between `0.10` and `1.50` before launching.
 Comfort mono is submitted once as a compositor-owned surface shared by both eyes. The
-default `stable-v9` profile preserves the protected runtime's exact `25.4 x 14.3` surface
-at a distance of `5.0` during gameplay. When Arma displays its cursor, the compositor
+public alpha uses a sharper `17.5 x 9.84375` surface at a distance of `5.0` during
+gameplay. This intentionally accepts moderate black borders in exchange for a smaller
+apparent pixel footprint, less zoom and better perceived clarity. When Arma displays its cursor, the compositor
 automatically narrows that surface to `9.5` while preserving the capture aspect ratio, so
 menus and launch screens fit in view. This camera baseline is intentionally independent
 from weapon and controller experiments. `A3VR_MONO_SCREEN_WIDTH`,
 `A3VR_MONO_SCREEN_HEIGHT`, `A3VR_MONO_SCREEN_DISTANCE`, and `A3VR_UI_SCREEN_WIDTH`
 remain available for deliberate overrides.
 
-The launcher calibrates the active Arma profile to `fovTop=1.2` and
-`fovLeft=2.1333333`, preserving the exact 16:9 relationship used by the 1920x1080
+The launcher calibrates the active Arma profile to `fovTop=2.5` and
+`fovLeft=4.4444444`, preserving the exact 16:9 relationship used by the 1920x1080
 capture. It creates a one-time `.a3vr-pre-fov` backup beside the profile before changing
 it. Right-controller aim defaults to `420` counts/radian and smooth turn to `300`
 counts/second to avoid the previous over-sensitive movement.
@@ -199,13 +203,31 @@ separate from weapon positioning.
 ## Limitations and safety
 
 - This remains experimental and is not a native Arma 3 VR renderer.
-- Stereo/depth behavior depends on the selected presentation mode and game
-  output; comfort-mono remains the compatibility default.
+- Comfort-mono presents the same game surface to both eyes. Head translation
+  provides useful spatial cues, but this is not native per-eye stereo rendering.
+- Moderate black borders are intentional in the sharp alpha profile.
 - Motion aiming drives Arma's native mouse-look rather than independent
   weapon bones.
+- The native soldier weapon, arms and body remain coupled to Arma animations;
+  there are no independent physical hands, holsters or manual reloads yet.
+- Magnified/PiP scopes still require Arma's native aim action. Vehicle controls,
+  Zeus/editor navigation and the VR UI cursor are experimental.
+- Right-stick stance currently covers standing and crouching; a reliable full
+  stand/crouch/prone cycle is not implemented in this alpha.
+- Arma has many contextual shortcuts. Keyboard and mouse are strongly
+  recommended alongside the VR controllers.
 - Use without BattlEye. Test locally or only on servers that explicitly permit
   client-side native modifications.
+- The PBO and native binaries are not signed for protected multiplayer use.
 - Stop immediately if the image causes eye strain, nausea or headache.
+
+## Tested setup and companion mods
+
+The final alpha preset was tested with Meta Quest over Air Link, S.O.G. Prairie
+Fire, CBA_A3, ACE, Zeus Enhanced, Suppress, Align, Immerse and True Death.
+Compatibility with those projects is not a certification or endorsement.
+The Action Menu radial mod was evaluated but is not part of the recommended
+alpha preset because its Backspace/menu bindings can conflict with VR input.
 
 The project does not modify Arma network traffic or overwrite base-game files.
 All installed files live inside the A3VR mod directory.

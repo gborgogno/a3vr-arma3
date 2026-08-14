@@ -1,8 +1,10 @@
 # Generated builds and packages
 /build*/
 /dist/
+/release/
 /.vs/
 /.cache/
+/.ci/
 
 # Local development and test artifacts
 /.codex-remote-attachments/
@@ -27,6 +29,7 @@ Arma3*.cfg
 
 # Packaged Arma artifacts
 *.pbo
+!/release-assets/a3vr_hybrid.pbo
 *.bisign
 *.bikey
 *.dll

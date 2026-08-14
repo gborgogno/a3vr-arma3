@@ -5,6 +5,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$A3LibScript,
     [string]$OutputDirectory = "",
+    [string]$PrereleaseLabel = "",
     [string]$Python = "python"
 )
 
@@ -36,7 +37,11 @@ if ($CMake -notmatch 'project\(A3VR VERSION ([0-9]+\.[0-9]+\.[0-9]+)') {
     throw "Could not read A3VR version from CMakeLists.txt."
 }
 $Version = $Matches[1]
-$PackageBaseName = "A3VR-Hybrid-v$Version"
+if ($PrereleaseLabel -and $PrereleaseLabel -notmatch '^[0-9A-Za-z.-]+$') {
+    throw "Invalid prerelease label: $PrereleaseLabel"
+}
+$PackageVersion = if ($PrereleaseLabel) { "$Version-$PrereleaseLabel" } else { $Version }
+$PackageBaseName = "A3VR-Hybrid-v$PackageVersion"
 $StagingRoot = Join-Path $OutputDirectory "$PackageBaseName-staging"
 $ModDirectory = Join-Path $StagingRoot "@A3VR_Hybrid"
 $AddonDestination = Join-Path $ModDirectory "addons"
@@ -73,6 +78,8 @@ foreach ($ProjectFile in @(
     "mod.cpp",
     "README.md",
     "ROADMAP.md",
+    "ALPHA_NOTES.md",
+    "a3vr-runtime.ini",
     "START_A3VR.cmd",
     "START_A3VR_LAUNCHER.cmd",
     "START_A3VR_SOG.cmd"
@@ -87,18 +94,23 @@ foreach ($ScriptFile in @("launch-a3vr.ps1", "set-a3vr-profile.ps1")) {
 
 $PboPath = Join-Path $AddonDestination "a3vr_hybrid.pbo"
 $AddonSource = Join-Path $ProjectRoot "addons\a3vr"
-Push-Location $AddonSource
-try {
-    & $Python $A3LibScript pbo -c -f $PboPath -e prefix a3vr_hybrid config.cpp functions
-    if ($LASTEXITCODE -ne 0) {
-        throw "PBO packer failed with exit code $LASTEXITCODE."
+$PinnedPbo = Join-Path $ProjectRoot "release-assets\a3vr_hybrid.pbo"
+if (Test-Path -LiteralPath $PinnedPbo -PathType Leaf) {
+    Copy-Item -Force -LiteralPath $PinnedPbo -Destination $PboPath
+} else {
+    Push-Location $AddonSource
+    try {
+        & $Python $A3LibScript pbo -c -f $PboPath -e prefix a3vr_hybrid config.cpp functions
+        if ($LASTEXITCODE -ne 0) {
+            throw "PBO packer failed with exit code $LASTEXITCODE."
+        }
+    } finally {
+        Pop-Location
     }
-    $PboEntries = & $Python $A3LibScript pbo -l -f $PboPath
-    if ($LASTEXITCODE -ne 0) {
-        throw "PBO validation failed with exit code $LASTEXITCODE."
-    }
-} finally {
-    Pop-Location
+}
+$PboEntries = & $Python $A3LibScript pbo -l -f $PboPath
+if ($LASTEXITCODE -ne 0) {
+    throw "PBO validation failed with exit code $LASTEXITCODE."
 }
 
 $RequiredPboEntries = @(

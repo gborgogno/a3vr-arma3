@@ -94,14 +94,35 @@ bool launch_server() {
     std::wstring server_path(module_path);
     const auto separator = server_path.find_last_of(L"\\/");
     server_path.resize(separator + 1);
+    const std::wstring runtime_config = server_path + L"a3vr-runtime.ini";
+    wchar_t runtime_manifest[MAX_PATH]{};
+    const DWORD runtime_length = GetPrivateProfileStringW(
+        L"openxr", L"runtime", L"", runtime_manifest,
+        static_cast<DWORD>(std::size(runtime_manifest)), runtime_config.c_str());
     server_path += L"A3VRRuntime_v30.exe";
     std::wstring command = L"\"" + server_path + L"\" --parent " +
                            std::to_wstring(GetCurrentProcessId());
     STARTUPINFOW startup{sizeof(startup)};
     PROCESS_INFORMATION process{};
+    wchar_t previous_runtime[MAX_PATH]{};
+    const DWORD previous_length = GetEnvironmentVariableW(
+        L"XR_RUNTIME_JSON", previous_runtime,
+        static_cast<DWORD>(std::size(previous_runtime)));
+    const bool had_previous_runtime = previous_length > 0 &&
+        previous_length < std::size(previous_runtime);
+    const bool use_runtime_override = runtime_length > 0 &&
+        runtime_length < std::size(runtime_manifest) &&
+        GetFileAttributesW(runtime_manifest) != INVALID_FILE_ATTRIBUTES;
+    if (use_runtime_override) {
+        SetEnvironmentVariableW(L"XR_RUNTIME_JSON", runtime_manifest);
+    }
     const BOOL created = CreateProcessW(server_path.c_str(), command.data(), nullptr, nullptr,
                                         FALSE, CREATE_NO_WINDOW, nullptr, nullptr,
                                         &startup, &process);
+    if (use_runtime_override) {
+        SetEnvironmentVariableW(L"XR_RUNTIME_JSON",
+                                had_previous_runtime ? previous_runtime : nullptr);
+    }
     if (created) {
         CloseHandle(process.hThread);
         CloseHandle(process.hProcess);

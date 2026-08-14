@@ -52,8 +52,8 @@ if (Test-Path -LiteralPath $ProfileTuner) {
 
 $env:A3VR_STEREO_MODE = "mono"
 $env:A3VR_VISUAL_PROFILE = "stable-v9"
-$env:A3VR_MONO_SCREEN_WIDTH = "25.4"
-$env:A3VR_MONO_SCREEN_HEIGHT = "14.3"
+$env:A3VR_MONO_SCREEN_WIDTH = "17.5"
+$env:A3VR_MONO_SCREEN_HEIGHT = "9.84375"
 $env:A3VR_MONO_SCREEN_DISTANCE = "5.0"
 $env:A3VR_UI_SCREEN_WIDTH = "9.5"
 $env:A3VR_CONTROLLER_AIM = "1"

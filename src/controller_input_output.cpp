@@ -190,7 +190,8 @@ void ControllerInputOutput::update(
         fire_mode_previous_ = state.fire_mode;
     }
     tap_on_rising_edge(state.interact, interact_previous_, VK_SPACE);
-    tap_on_rising_edge(state.vault, vault_previous_, 'V');
+    // Oculus Touch right B: throw the currently selected Arma grenade.
+    tap_on_rising_edge(state.vault, vault_previous_, 'G');
     const bool stand = state.turn_y > stick_threshold_;
     const bool crouch = state.turn_y < -stick_threshold_;
     tap_on_rising_edge(stand, stand_previous_, 'C');

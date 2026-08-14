@@ -67,8 +67,8 @@ private:
     bool session_running_{false};
     bool sbs_mode_{false};
     bool mono_mode_{false};
-    float mono_screen_width_{25.4F};
-    float mono_screen_height_{14.3F};
+    float mono_screen_width_{17.5F};
+    float mono_screen_height_{9.84375F};
     float mono_screen_distance_{5.0F};
     float ui_screen_width_{9.5F};
 
