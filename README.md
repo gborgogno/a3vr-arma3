@@ -1,6 +1,6 @@
 # A3VR
 
-**Current public test build: 1.13.1-alpha.1.**
+**Current public test build: 1.14.0-alpha.1.**
 
 A3VR is an experimental hybrid OpenXR bridge for 64-bit Arma 3. It presents
 the game's D3D11 output in a headset, publishes headset movement through
@@ -327,6 +327,21 @@ For large mod sets, A3VR does not require an interaction addon. CBA_A3 + ACE3
 and Zeus Enhanced remain compatible, but their additional actions currently use
 their own keyboard bindings. The experimental controller modifier layer was removed
 because a held or noisy left grip could suppress core locomotion and combat controls.
+
+### FreeTrack missing / Controller menu empty in Arma 3
+
+Arma 3 requires standard Windows registry entries (`NPClient.dll`) to expose FreeTrack in the Controls menu. If you have never used head tracking on your PC, Arma 3 will hide the device by default.
+
+**OpenTrack is NOT required.** To resolve this without installing third-party software:
+
+1. Close Arma 3 and run `START_A3VR_LAUNCHER.cmd` from the mod directory once.
+2. Alternatively, open your `.ARMA3PROFILE` file (`Documents\Arma 3\<ProfileName>.ARMA3PROFILE`) and manually add:
+```cpp
+class freeTrackClass
+{
+    enabled=1;
+    ownSettings=1;
+};
 
 ## Limitations and safety
 
