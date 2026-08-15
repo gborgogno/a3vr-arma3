@@ -1,0 +1,30 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "Checklist before opening an issue"
+    url: "https://github.com/gborgogno/REPO/README.md"
+    about: "Check the README and changelog, and use the appropriate template. Update this link."
+issue_templates:
+  - name: "Bug report"
+    about: "Report a bug or unexpected behavior of the mod"
+    title: "[BUG] "
+    labels: [bug]
+  - name: "Feature / Improvement"
+    about: "Suggest a new feature or improvement for the mod"
+    title: "[FEATURE] "
+    labels: [enhancement]
+  - name: "Question / Support"
+    about: "Usage, configuration or general questions"
+    title: "[SUPPORT] "
+    labels: [support]
+  - name: "Performance issue"
+    about: "Report FPS drops, stutter or other performance problems"
+    title: "[PERFORMANCE] "
+    labels: [performance]
+  - name: "Translation / Text"
+    about: "Requests for translation or text/string corrections"
+    title: "[I18N] "
+    labels: [i18n]
+  - name: "Tracking / OpenXR issue"
+    about: "Issues related to trackers and OpenXR"
+    title: "[TRACKER] "
+    labels: [hardware,tracking]

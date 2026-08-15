@@ -370,3 +370,10 @@ approximately nine years ago:
 That prototype showed that meaningful headset and motion-controller interaction
 could be explored despite the limitations of Real Virtuality 4. A3VR is a
 separate modern OpenXR implementation, not a continuation of that project.
+
+## License
+
+This project is licensed under the Apache License 2.0. See the `LICENSE` file
+for full terms. A short `NOTICE` file is included in the repository.
+
+Copyright 2026 gborgogno
