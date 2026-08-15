@@ -1,33 +1,40 @@
-# A3VR 1.13.1-alpha.1
+# A3VR 1.14.0-alpha.1
 
 Public testing build of the A3VR hybrid OpenXR bridge for Arma 3.
 
 ## Highlights
 
-- 6DoF headset tracking through FreeTrack.
-- Right-controller motion aiming with Arma's native weapon path.
-- Controller movement, fire, ADS, reload, fire mode, grenade, weapon swap,
-  interaction, sprint, smooth turning and stand/crouch input.
-- Sharp comfort-mono profile using a 17.5 x 9.84375 surface at 5 m.
-- 3840x2160 internal Ultra preset with a 1920x1080 borderless capture/UI.
-- Automatic runtime startup from the official Arma 3 Launcher.
-- Meta OpenXR runtime override when installed; other headsets fall back to the
-  system OpenXR runtime.
+- Increased right-controller motion-aim response so the native weapon and
+  soldier body follow controller rotation more closely.
+- Increased smooth-turn speed and added dedicated vertical vehicle
+  camera/turret input.
+- Added progressive stand, crouch and prone cycling with one deliberate
+  right-stick flick per stance level.
+- Added physical crouch detection from headset height, with hysteresis to
+  prevent stance flicker.
+- Improved native interaction input for doors and vehicle actions.
+- Added reliable game, UI, Zeus and vehicle context detection without allowing
+  stale menu state to disable locomotion or motion aiming.
+- Restored the approved sharp comfort profile: wide FOV, 17.5 x 9.84375 surface
+  at 5 m, 3840x2160 internal rendering and 1920x1080 borderless output.
+- Fixed automatic startup when a Steam Workshop directory contains square
+  brackets such as `[Public Alpha]`.
+- The public package now follows the system's active OpenXR runtime instead of
+  forcing a Meta-specific installation path.
 
 ## Important alpha limitations
 
-- This is a hybrid bridge, not native per-eye stereo VR.
-- Moderate black borders are intentional in the sharp profile.
-- No independent physical hands, manual reloads or physical inventory.
-- Vehicle input, Zeus/editor navigation, scopes and UI pointing remain
-  experimental.
-- Stand/crouch is available; full stance cycling through prone is not reliable.
-- Keyboard and mouse are recommended for Arma's many contextual commands.
+- This remains a hybrid comfort-mono bridge, not native per-eye stereo VR.
+- Moderate black borders are expected in the sharp comfort profile.
+- Full room-scale locomotion and independent physical hands are not available.
+- Manual reloads, physical inventory, scopes, Zeus navigation and the VR UI
+  cursor remain experimental or incomplete.
+- Keyboard and mouse remain recommended for Arma's contextual commands.
 - Disable BattlEye. Native DLL/PBO files are not multiplayer-signed.
-- Stop immediately if VR discomfort occurs.
+- Stop immediately if the image causes nausea, headache or eye strain.
 
-## Tested companion setup
+## Tested setup
 
-Meta Quest/Air Link, S.O.G. Prairie Fire, CBA_A3, ACE, Zeus Enhanced,
-Suppress, Align, Immerse and True Death. Action Menu radial was evaluated but
-is excluded from the recommended preset due to input conflicts.
+Meta Quest over Air Link with Meta OpenXR. S.O.G. Prairie Fire, CBA_A3, ACE,
+Zeus Enhanced, Suppress, Align, Immerse and True Death were used during local
+testing but are not required dependencies.

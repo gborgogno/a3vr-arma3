@@ -81,6 +81,10 @@ if (Test-Path -LiteralPath $LegacyPbo -PathType Leaf) {
 }
 Copy-Item -Force -LiteralPath $NativeDll -Destination $ModDirectory
 Copy-Item -Force -LiteralPath $ServerExe -Destination $ModDirectory
+if (Test-Path -LiteralPath (Join-Path $ProjectRoot "a3vr-runtime.ini")) {
+    Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "a3vr-runtime.ini") `
+        -Destination $ModDirectory
+}
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "mod.cpp") -Destination $ModDirectory
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "README.md") -Destination $ModDirectory
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "ROADMAP.md") -Destination $ModDirectory
@@ -93,7 +97,9 @@ Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "scripts\launch-a3vr.ps1")
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "scripts\set-a3vr-profile.ps1") -Destination $PackagedScripts
 
 $AddonSource = Join-Path $ProjectRoot "addons\a3vr"
-& $AddonBuilder $AddonSource $AddonDestination -packonly -clear -prefix=a3vr_hybrid
+$ToolsDirectory = Split-Path -Parent (Split-Path -Parent $AddonBuilder)
+& $AddonBuilder $AddonSource $AddonDestination -packonly -clear -prefix=a3vr_hybrid `
+    "-toolsDirectory=$ToolsDirectory"
 if ($LASTEXITCODE -ne 0) {
     throw "Addon Builder failed with exit code $LASTEXITCODE"
 }

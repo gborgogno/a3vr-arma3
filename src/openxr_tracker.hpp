@@ -109,6 +109,13 @@ private:
     ControllerAimOutput controller_aim_{};
     ControllerInputOutput controller_input_{};
     bool recenter_key_down_{};
+    bool fire_pressed_{};
+    bool aim_pressed_{};
+    bool radial_pressed_{};
+    bool vault_pressed_{};
+    bool roomscale_origin_valid_{};
+    float roomscale_origin_height_{};
+    bool roomscale_crouched_{};
 };
 
 } // namespace a3vr

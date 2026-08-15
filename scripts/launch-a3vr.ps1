@@ -57,16 +57,30 @@ $env:A3VR_MONO_SCREEN_HEIGHT = "9.84375"
 $env:A3VR_MONO_SCREEN_DISTANCE = "5.0"
 $env:A3VR_UI_SCREEN_WIDTH = "9.5"
 $env:A3VR_CONTROLLER_AIM = "1"
-$env:A3VR_CONTROLLER_COUNTS_PER_RADIAN = "420"
-$env:A3VR_HEAD_ROTATION_GAIN = "0.65"
-$env:A3VR_BODY_RECESS_MM = "0"
+$env:A3VR_CONTROLLER_COUNTS_PER_RADIAN = "900"
+$env:A3VR_HEAD_ROTATION_GAIN = "0.42"
+$env:A3VR_BODY_RECESS_MM = "140"
 $env:A3VR_CONTROLLER_BUTTONS = "1"
 $env:A3VR_PROXY_WEAPON = "0"
 $env:A3VR_CONTROLLER_STICK_THRESHOLD = "0.25"
 $env:A3VR_SMOOTH_TURN = "1"
-$env:A3VR_SMOOTH_TURN_COUNTS_PER_SECOND = "300"
-$RuntimeProcess = Start-Process -FilePath $Runtime -WorkingDirectory $ModDirectory `
-    -WindowStyle Hidden -PassThru
+$env:A3VR_SMOOTH_TURN_COUNTS_PER_SECOND = "1100"
+$env:A3VR_VEHICLE_PITCH_COUNTS_PER_SECOND = "950"
+
+# Start-Process resolves -WorkingDirectory as a wildcard path in Windows
+# PowerShell 5.1. Steam Workshop titles commonly contain square brackets (for
+# example "[Public Alpha]"), so use ProcessStartInfo's literal string paths.
+$RuntimeStartInfo = New-Object System.Diagnostics.ProcessStartInfo
+$RuntimeStartInfo.FileName = [System.IO.Path]::GetFullPath($Runtime)
+$RuntimeStartInfo.WorkingDirectory = [System.IO.Path]::GetFullPath($ModDirectory)
+$RuntimeStartInfo.UseShellExecute = $false
+$RuntimeStartInfo.CreateNoWindow = $true
+$RuntimeStartInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+$RuntimeProcess = New-Object System.Diagnostics.Process
+$RuntimeProcess.StartInfo = $RuntimeStartInfo
+if (-not $RuntimeProcess.Start()) {
+    throw "A3VRRuntime_v30 could not be started."
+}
 try {
     Start-Sleep -Milliseconds 1200
     if ($RuntimeProcess.HasExited) {

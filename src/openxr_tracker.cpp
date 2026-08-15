@@ -1,4 +1,5 @@
 #include "openxr_tracker.hpp"
+#include "game_context.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -20,11 +21,11 @@ namespace {
 
 bool xr_ok(const XrResult result) noexcept { return XR_SUCCEEDED(result); }
 
-bool system_cursor_is_visible() noexcept {
-    CURSORINFO cursor_info{sizeof(cursor_info)};
-    return GetCursorInfo(&cursor_info) != FALSE &&
-           (cursor_info.flags & CURSOR_SHOWING) != 0;
+bool vr_ui_mode() noexcept {
+    return (game_context() & game_context_ui) != 0U;
 }
+
+constexpr std::uint32_t kRoomscaleCrouchButton = 1024U;
 
 TrackedPose convert_pose(const XrSpaceLocation& location) {
     const auto flags = location.locationFlags;
@@ -149,13 +150,13 @@ bool OpenXrTracker::initialize() {
         return parsed >= minimum && parsed <= maximum ? parsed : fallback;
     };
     mono_screen_width_ = read_screen_value(
-        "A3VR_MONO_SCREEN_WIDTH", 17.5F, 4.0F, 30.0F);
+        "A3VR_MONO_SCREEN_WIDTH", 17.5F, 3.0F, 20.0F);
     mono_screen_height_ = read_screen_value(
-        "A3VR_MONO_SCREEN_HEIGHT", 9.84375F, 2.0F, 20.0F);
+        "A3VR_MONO_SCREEN_HEIGHT", 9.84375F, 2.0F, 12.0F);
     mono_screen_distance_ = read_screen_value(
-        "A3VR_MONO_SCREEN_DISTANCE", 5.0F, 2.0F, 20.0F);
+        "A3VR_MONO_SCREEN_DISTANCE", 5.0F, 1.0F, 10.0F);
     ui_screen_width_ = read_screen_value(
-        "A3VR_UI_SCREEN_WIDTH", 9.5F, 4.0F, 20.0F);
+        "A3VR_UI_SCREEN_WIDTH", 9.5F, 2.0F, 10.0F);
     (void)freetrack_.open();
     set_status("initializing: enumerate extensions");
     std::uint32_t extension_count = 0;
@@ -605,6 +606,29 @@ void OpenXrTracker::run_frame() {
         freetrack_.publish(next.head);
     }
 
+    if (recenter_requested) {
+        roomscale_origin_valid_ = false;
+        roomscale_crouched_ = false;
+    }
+    if (next.head.position_valid) {
+        if (!roomscale_origin_valid_) {
+            roomscale_origin_height_ = next.head.position.y;
+            roomscale_origin_valid_ = true;
+        } else {
+            // Treat the highest relaxed head position since recenter as the
+            // standing reference. Hysteresis prevents stance chatter when the
+            // user naturally bobs near the crouch threshold.
+            if (!roomscale_crouched_ &&
+                next.head.position.y > roomscale_origin_height_) {
+                roomscale_origin_height_ = next.head.position.y;
+            }
+            const float height_drop =
+                roomscale_origin_height_ - next.head.position.y;
+            roomscale_crouched_ = roomscale_crouch_state(
+                height_drop, roomscale_crouched_);
+        }
+    }
+
     ControllerInputState controller_input{};
     const XrActiveActionSet active_set{action_set_, XR_NULL_PATH};
     XrActionsSyncInfo sync_info{XR_TYPE_ACTIONS_SYNC_INFO};
@@ -676,19 +700,32 @@ void OpenXrTracker::run_frame() {
         if (std::abs(right_component_y) > std::abs(right_y)) right_y = right_component_y;
         controller_input.turn_x = right_x;
         controller_input.turn_y = right_y;
-        controller_input.fire = read_float(fire_action_, hand_paths_[1]) >= 0.55F;
-        controller_input.aim = read_float(aim_action_, hand_paths_[1]) >= 0.55F;
-        controller_input.sprint = read_boolean(sprint_action_, hand_paths_[0]) ||
+        controller_input.fire = analog_button_pressed(
+            read_float(fire_action_, hand_paths_[1]), fire_pressed_, 0.22F, 0.12F);
+        fire_pressed_ = controller_input.fire;
+        controller_input.aim = analog_button_pressed(
+            read_float(aim_action_, hand_paths_[1]), aim_pressed_, 0.38F, 0.24F);
+        aim_pressed_ = controller_input.aim;
+        controller_input.sprint_click = read_boolean(sprint_action_, hand_paths_[0]);
+        controller_input.sprint = controller_input.sprint_click ||
             std::hypot(controller_input.move_x, controller_input.move_y) >= 0.85F;
         controller_input.reload = read_boolean(reload_action_, hand_paths_[1]);
         controller_input.fire_mode = read_boolean(fire_mode_action_, hand_paths_[1]);
         controller_input.swap_weapon = read_boolean(swap_weapon_action_, hand_paths_[0]);
-        controller_input.vault = read_boolean(vault_action_, hand_paths_[1]);
         controller_input.interact = read_boolean(interact_action_, hand_paths_[0]);
         const float left_index = std::clamp(
             read_float(left_trigger_action_, hand_paths_[0]), 0.0F, 1.0F);
+        // Use every physical control without a pause binding: left trigger is
+        // vault/step-over and right B is grenade.
+        controller_input.vault = analog_button_pressed(
+            left_index, vault_pressed_, 0.78F, 0.45F);
+        vault_pressed_ = controller_input.vault;
+        controller_input.grenade = read_boolean(vault_action_, hand_paths_[1]);
         const float left_grip = std::clamp(
             read_float(left_squeeze_action_, hand_paths_[0]), 0.0F, 1.0F);
+        controller_input.radial_menu = analog_button_pressed(
+            left_grip, radial_pressed_, 0.55F, 0.35F);
+        radial_pressed_ = controller_input.radial_menu;
         const float left_thumb = read_boolean(
             left_thumb_touch_action_, hand_paths_[0]) ? 1.0F : 0.0F;
         next.left_finger_curls = {
@@ -706,7 +743,10 @@ void OpenXrTracker::run_frame() {
         (controller_input.fire_mode ? 16U : 0U) |
         (controller_input.swap_weapon ? 32U : 0U) |
         (controller_input.interact ? 64U : 0U) |
-        (controller_input.vault ? 128U : 0U);
+        (controller_input.vault ? 128U : 0U) |
+        (controller_input.grenade ? 256U : 0U) |
+        (controller_input.radial_menu ? 512U : 0U) |
+        (roomscale_crouched_ ? kRoomscaleCrouchButton : 0U);
     controller_aim_.update(next.right_hand, next.head, active_render_frame_.source_pid,
                            recenter_requested);
     controller_input_.update(controller_input, active_render_frame_.source_pid);
@@ -825,21 +865,25 @@ void OpenXrTracker::run_frame() {
         if (game_texture_mutex_) game_texture_mutex_->ReleaseSync(0);
         if (copied_all) {
             if (mono_mode_) {
-                // One compositor-owned surface is shared by both eyes. Gameplay
-                // keeps the exact protected-v9 comfort geometry. Arma exposes an
-                // OS cursor in menus, so that state gets a narrower 16:9 surface
-                // which fits the complete UI inside the headset field of view.
-                mono_quad.space = view_space_;
-                mono_quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
-                mono_quad.pose.orientation = {0.0F, 0.0F, 0.0F, 1.0F};
-                mono_quad.pose.position = {0.0F, 0.0F, -mono_screen_distance_};
-                const bool ui_mode = system_cursor_is_visible();
+                const bool ui_mode = vr_ui_mode();
                 const float capture_aspect = active_render_frame_.height > 0
                     ? static_cast<float>(active_render_frame_.width) /
                           static_cast<float>(active_render_frame_.height)
                     : mono_screen_width_ / mono_screen_height_;
+                // Restore the protected comfort-mono camera: one compositor-owned
+                // surface, identical for both eyes. Projection mode was rejected
+                // because per-eye optical warping made the views feel scrambled.
+                mono_quad.space = view_space_;
+                mono_quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+                mono_quad.pose.orientation = {0.0F, 0.0F, 0.0F, 1.0F};
+                mono_quad.pose.position = {0.0F, 0.0F, -mono_screen_distance_};
+                // Submit exactly one surface.  Menus use the smaller complete
+                // frame so every control is reachable; gameplay uses the wide
+                // comfort surface.  Layering both copies causes an obvious
+                // double image whenever their edges/content overlap.
                 mono_quad.size = ui_mode
-                    ? XrExtent2Df{ui_screen_width_, ui_screen_width_ / capture_aspect}
+                    ? XrExtent2Df{ui_screen_width_,
+                                 ui_screen_width_ / capture_aspect}
                     : XrExtent2Df{mono_screen_width_, mono_screen_height_};
                 mono_quad.subImage.swapchain = eye_swapchains_[0].handle;
                 mono_quad.subImage.imageRect.offset = {0, 0};
@@ -911,6 +955,9 @@ void OpenXrTracker::shutdown() {
     d3d_context_.Reset();
     d3d_device_.Reset();
     freetrack_.close();
+    roomscale_origin_valid_ = false;
+    roomscale_origin_height_ = 0.0F;
+    roomscale_crouched_ = false;
 }
 
 } // namespace a3vr

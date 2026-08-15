@@ -14,6 +14,14 @@
 /third_party/
 /assets/
 /standalone-mod/
+/local-test/
+/local-test-fixed/
+/local-test-v*/
+/.audit/
+/diagnostics/
+/recovery-v*/
+/release-*-worktree/
+/a3vr-runtime.ini
 /INICIAR_A3VR_CONTROLLER_TEST.cmd
 /INICIAR_A3VR_WEAPON_TEST.cmd
 
@@ -29,7 +37,6 @@ Arma3*.cfg
 
 # Packaged Arma artifacts
 *.pbo
-!/release-assets/a3vr_hybrid.pbo
 *.bisign
 *.bikey
 *.dll

@@ -9,3 +9,4 @@ private _version = "A3VRHybridCore" callExtension "version";
 private _status = "A3VRHybridCore" callExtension "start";
 diag_log format ["[A3VR] Runtime post-init check: version=%1, status=%2", _version, _status];
 [] spawn A3VRHybrid_fnc_trackingLoop;
+[] spawn A3VRHybrid_fnc_gameContextLoop;

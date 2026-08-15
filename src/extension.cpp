@@ -1,5 +1,6 @@
 #include "shared_state.hpp"
 #include "d3d11_capture.hpp"
+#include "game_context.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -148,6 +149,19 @@ std::string dispatch(const std::string_view function) {
         return read_state(snapshot, status) ? status : "stopped";
     }
     if (function == "capture") return a3vr::d3d11_capture_status();
+    if (function.starts_with("context:")) {
+        const auto value = function.substr(8);
+        std::uint32_t flags{};
+        const auto parse_flag = [&](const std::string_view name,
+                                    const std::uint32_t flag) {
+            if (value.find(name) != std::string_view::npos) flags |= flag;
+        };
+        parse_flag("ui", a3vr::game_context_ui);
+        parse_flag("zeus", a3vr::game_context_zeus);
+        parse_flag("vehicle", a3vr::game_context_vehicle);
+        a3vr::set_game_context(flags);
+        return "ok";
+    }
     if (function == "render") {
         a3vr::SharedRenderFrame frame{};
         if (!shared_state().read_render(frame)) return "render IPC unavailable";

@@ -1,45 +1,85 @@
-A3VR Hybrid is an experimental public-alpha OpenXR bridge for 64-bit Arma 3.
+A3VR Hybrid is an experimental public-alpha OpenXR bridge for 64-bit Arma 3. It does not require VorpX.
 
-PUBLIC ALPHA: 1.13.1-alpha.1
+PUBLIC ALPHA: 1.14.0-alpha.1
+
+QUICK START
+1. Subscribe or add @A3VR_Hybrid as a local mod.
+2. Start the headset and activate the intended OpenXR runtime.
+3. Enable only A3VR - Arma 3 Hybrid VR in the official Launcher.
+4. Disable BattlEye.
+5. Enable FreeTrack in Arma's controller/device settings if it is listed.
+6. Start normally, press F8 to recenter and press F9 if motion aiming is disabled.
+
+No VorpX installation is required. The VR-controller mappings are built into A3VR, so no Steam Input profile is needed. They use Arma's native default actions; customized Arma bindings can cause some VR buttons to stop matching the documented controls. FreeTrack must still be enabled manually in Arma's controller/device settings.
+
+IMPORTANT FOV SETUP
+Loading the Workshop addon starts the VR bridge, but does not automatically apply the supplied FOV/graphics profile. With Arma closed, run START_A3VR_LAUNCHER.cmd from the mod directory once, or configure the FOV manually. The supplied script backs up the original Arma settings before changing them. Reapply it if Arma or another mod replaces the profile values.
+
+Manual FOV guide: How to increase FOV in ARMA by Kubas
+https://steamcommunity.com/sharedfiles/filedetails/?id=1731376270
+This is an external community reference, not an A3VR dependency. Back up the profile before making manual changes.
+
+WHAT “HYBRID” MEANS
+A3VR combines Arma's existing renderer and weapon system with OpenXR headset presentation, FreeTrack head-pose input and VR-controller bindings. The current public alpha uses comfort-mono: both eyes receive the same game surface. It is not native per-eye stereo and does not currently provide true binocular depth.
+
+Head rotation and translation are carried through Arma's six-axis FreeTrack path. Full VR-grade 6DoF camera behavior, positional scale and broader headset compatibility remain in development. This initial alpha was released so players could experience functional head tracking and basic VR interaction without purchasing VorpX while development continues.
+
+RUNTIME STATUS
+- Validated: Meta Quest over Air Link using Meta OpenXR
+- Community-reported: VDXR can work, but remains under evaluation
+- Not yet validated: Virtual Desktop through SteamVR, native SteamVR headsets and Pimax
 
 FEATURES
-- 6DoF headset tracking through FreeTrack
+- Headset pose through FreeTrack
 - Right-controller motion aiming using Arma's native weapon
+- Faster 1:1-style motion-aim response and faster smooth turning
 - Fire, ADS, reload, fire mode, grenade, weapon swap and interaction binds
-- Left-stick movement, sprint and right-stick smooth turning/stance input
+- Left-stick movement and sprint
+- Progressive stand/crouch/prone input on the right stick
+- Physical headset crouch with a stable height threshold
+- Vehicle camera/turret pitch on the right stick
+- More reliable native interaction for doors and vehicle actions
 - Automatic startup from the official Arma 3 Launcher
-- Sharp comfort-mono profile with a 4K internal Ultra preset
-- Compatible with additional mods and DLC presets in the official Launcher
+- Comfort-mono presentation and high-resolution internal graphics profile
+- Additional mods and DLC presets through the official Launcher
 
 META TOUCH DEFAULTS
 - Right trigger: fire
 - Right grip: aim down sights
 - Right A: reload
-- Right B: throw grenade
+- Right B: throw selected grenade
 - Right stick click: fire mode
 - Left stick: move/strafe; click to sprint
 - Right stick horizontal: smooth turn
-- Right stick up/down: stand/crouch
+- Right stick down/up: lower/raise one stance level
 - Left X: interact
 - Left Y: switch primary/sidearm
-- F8: recenter; F9: toggle motion aim; F10: force/release VR UI mode
+- F8: recenter
+- F9: toggle motion aim
+- F10: force/release VR UI mode
 
 TESTED WITH
-Meta Quest over Air Link, S.O.G. Prairie Fire, CBA_A3, ACE, Zeus Enhanced,
-Suppress, Align, Immerse and True Death. These are not required dependencies.
-The Action Menu radial mod is not recommended in this alpha because its menu
-bindings can conflict with VR input.
+Meta Quest/Air Link, S.O.G. Prairie Fire, CBA_A3, ACE, Zeus Enhanced, Suppress, Align, Immerse and True Death. These are not required dependencies. Test without controller-remapping or radial-menu mods when diagnosing input problems.
 
-IMPORTANT LIMITATIONS
-- This is not a native Arma 3 VR renderer or true per-eye stereo.
-- Moderate black borders are intentional for clarity and reduced zoom.
-- No independent physical hands, manual reload or physical inventory yet.
-- Vehicles, Zeus/editor navigation, scopes and the VR UI cursor are experimental.
-- Full stand/crouch/prone cycling is not reliable.
-- Keyboard and mouse are strongly recommended for Arma's contextual shortcuts.
-- Disable BattlEye. Do not use on protected multiplayer servers.
-- Native binaries/PBO are not multiplayer-signed.
-- Stop immediately if the image causes nausea, headache or eye strain.
+KNOWN LIMITATIONS
+- Comfort-mono, not native per-eye stereo
+- Full VR-grade 6DoF remains in progress
+- Moderate black borders may be intentional in the comfort profile
+- No independent physical hands, manual reload or physical inventory yet
+- Advanced room-scale locomotion, Zeus/editor navigation, scopes and the VR UI cursor remain experimental
+- Keyboard and mouse are strongly recommended for contextual Arma commands
+- Native binaries and PBO are not signed for protected multiplayer
+
+TROUBLESHOOTING
+- Image but no head tracking: enable FreeTrack, load only one A3VR variant and press F8.
+- Head tracking but no motion aim: wake both controllers and press F9.
+- No headset image: verify the active OpenXR runtime before starting Arma.
+- Excessive zoom: remove competing FOV overrides while testing the supplied comfort profile.
+
+Disable BattlEye and do not use this alpha on protected multiplayer servers. Stop immediately if the image causes nausea, headache or eye strain.
+
+Inspired by an experimental Arma 3 VR demonstration published approximately nine years ago:
+https://www.youtube.com/watch?v=I1UzLh-WVVw
 
 Do not load another A3VR variant at the same time.
 Unofficial community project; not affiliated with Bohemia Interactive.

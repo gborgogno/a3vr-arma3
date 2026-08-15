@@ -1,9 +1,9 @@
-name = "A3VR — Arma 3 Hybrid VR [Public Alpha]";
+name = "A3VR — Arma 3 Hybrid VR";
 picture = "";
 logo = "";
 logoOver = "";
-tooltip = "A3VR — Hybrid VR Public Alpha";
-tooltipOwned = "A3VR — Hybrid VR Public Alpha";
-overview = "Public alpha: OpenXR presentation, 6DoF head tracking and motion-controller aiming for Arma 3.";
+tooltip = "A3VR — Arma 3 Hybrid VR";
+tooltipOwned = "A3VR — Arma 3 Hybrid VR";
+overview = "Experimental OpenXR presentation, 6DoF head tracking and motion-controller aiming for Arma 3.";
 author = "A3VR contributors";
-version = "1.13.1-alpha.1";
+version = "1.14.0-alpha.1";

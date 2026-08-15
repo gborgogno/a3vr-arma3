@@ -79,7 +79,6 @@ foreach ($ProjectFile in @(
     "README.md",
     "ROADMAP.md",
     "ALPHA_NOTES.md",
-    "a3vr-runtime.ini",
     "START_A3VR.cmd",
     "START_A3VR_LAUNCHER.cmd",
     "START_A3VR_SOG.cmd"
@@ -94,29 +93,26 @@ foreach ($ScriptFile in @("launch-a3vr.ps1", "set-a3vr-profile.ps1")) {
 
 $PboPath = Join-Path $AddonDestination "a3vr_hybrid.pbo"
 $AddonSource = Join-Path $ProjectRoot "addons\a3vr"
-$PinnedPbo = Join-Path $ProjectRoot "release-assets\a3vr_hybrid.pbo"
-if (Test-Path -LiteralPath $PinnedPbo -PathType Leaf) {
-    Copy-Item -Force -LiteralPath $PinnedPbo -Destination $PboPath
-} else {
-    Push-Location $AddonSource
-    try {
-        & $Python $A3LibScript pbo -c -f $PboPath -e prefix a3vr_hybrid config.cpp functions
-        if ($LASTEXITCODE -ne 0) {
-            throw "PBO packer failed with exit code $LASTEXITCODE."
-        }
-    } finally {
-        Pop-Location
+Push-Location $AddonSource
+try {
+    & $Python $A3LibScript pbo -c -f $PboPath -e prefix a3vr_hybrid config.cpp functions
+    if ($LASTEXITCODE -ne 0) {
+        throw "PBO packer failed with exit code $LASTEXITCODE."
     }
-}
-$PboEntries = & $Python $A3LibScript pbo -l -f $PboPath
-if ($LASTEXITCODE -ne 0) {
-    throw "PBO validation failed with exit code $LASTEXITCODE."
+    $PboEntries = & $Python $A3LibScript pbo -l -f $PboPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "PBO validation failed with exit code $LASTEXITCODE."
+    }
+} finally {
+    Pop-Location
 }
 
 $RequiredPboEntries = @(
     "config.cpp",
     "functions\fn_preStart.sqf",
-    "functions\fn_postInit.sqf"
+    "functions\fn_postInit.sqf",
+    "functions\fn_trackingLoop.sqf",
+    "functions\fn_gameContextLoop.sqf"
 )
 foreach ($Entry in $RequiredPboEntries) {
     if ($PboEntries -notcontains $Entry) {

@@ -1,0 +1,14 @@
+A3VR Hybrid 1.14.0-alpha.1
+
+- Increased motion-aim response and smooth-turn speed.
+- Added progressive stand/crouch/prone cycling on the right stick.
+- Added physical crouch detection from headset height.
+- Added vertical camera/turret control in vehicles.
+- Improved door and native interaction input.
+- Prevented stale UI state from disabling movement or motion aiming.
+- Restored the sharp wide-FOV profile: 4K internal rendering with 1080p borderless output.
+- Restored the approved comfort-mono scale; moderate black borders are expected.
+- Fixed automatic startup from Workshop paths containing square brackets.
+- Public builds now follow the active system OpenXR runtime instead of forcing Meta OpenXR.
+
+This remains an experimental comfort-mono bridge rather than native per-eye stereo VR. Disable BattlEye, do not use it on protected multiplayer servers, and keep keyboard/mouse available for Arma's contextual controls.

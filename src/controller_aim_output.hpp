@@ -45,7 +45,9 @@ private:
     ControllerAngles previous_{};
     float residual_x_{};
     float residual_y_{};
-    float counts_per_radian_{420.0F};
+    // Higher default keeps the native weapon/body response close to the
+    // physical controller instead of requiring exaggerated wrist movement.
+    float counts_per_radian_{900.0F};
     float cursor_x_{0.5F};
     float cursor_y_{0.5F};
 };

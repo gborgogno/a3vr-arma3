@@ -1,4 +1,5 @@
 #include "controller_input_output.hpp"
+#include "game_context.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -18,11 +19,6 @@ bool game_is_foreground(const std::uint32_t game_pid) noexcept {
     DWORD foreground_pid{};
     GetWindowThreadProcessId(foreground, &foreground_pid);
     return foreground_pid == game_pid;
-}
-
-bool game_cursor_is_visible() noexcept {
-    CURSORINFO info{sizeof(info)};
-    return GetCursorInfo(&info) != FALSE && (info.flags & CURSOR_SHOWING) != 0;
 }
 
 void set_key(const WORD key, const bool requested, bool& held) noexcept {
@@ -59,6 +55,14 @@ void tap_on_rising_edge(const bool current, bool& previous, const WORD key) noex
     previous = current;
 }
 
+void scroll_mouse(const LONG amount) noexcept {
+    INPUT input{};
+    input.type = INPUT_MOUSE;
+    input.mi.mouseData = static_cast<DWORD>(amount);
+    input.mi.dwFlags = MOUSEEVENTF_WHEEL;
+    (void)SendInput(1, &input, sizeof(input));
+}
+
 } // namespace
 
 MovementKeys movement_keys_from_stick(
@@ -70,6 +74,25 @@ MovementKeys movement_keys_from_stick(
         x < -deadzone,
         x > deadzone,
     };
+}
+
+bool analog_button_pressed(const float value, const bool previous,
+                           const float press_threshold,
+                           const float release_threshold) noexcept {
+    return previous ? value > release_threshold : value >= press_threshold;
+}
+
+bool roomscale_crouch_state(const float height_drop_metres,
+                            const bool previous,
+                            const float enter_threshold,
+                            const float exit_threshold) noexcept {
+    if (!std::isfinite(height_drop_metres) ||
+        !std::isfinite(enter_threshold) || !std::isfinite(exit_threshold)) {
+        return false;
+    }
+    const float enter = std::clamp(enter_threshold, 0.10F, 1.00F);
+    const float exit = std::clamp(exit_threshold, 0.02F, enter - 0.02F);
+    return previous ? height_drop_metres > exit : height_drop_metres >= enter;
 }
 
 ControllerInputOutput::ControllerInputOutput() {
@@ -109,6 +132,17 @@ ControllerInputOutput::ControllerInputOutput() {
         const float parsed = std::strtof(turn_rate_value, nullptr);
         if (parsed >= 50.0F && parsed <= 2000.0F) smooth_turn_counts_per_second_ = parsed;
     }
+
+    char vehicle_pitch_value[32]{};
+    const DWORD vehicle_pitch_size = GetEnvironmentVariableA(
+        "A3VR_VEHICLE_PITCH_COUNTS_PER_SECOND", vehicle_pitch_value,
+        static_cast<DWORD>(std::size(vehicle_pitch_value)));
+    if (vehicle_pitch_size > 0 && vehicle_pitch_size < std::size(vehicle_pitch_value)) {
+        const float parsed = std::strtof(vehicle_pitch_value, nullptr);
+        if (parsed >= 50.0F && parsed <= 2000.0F) {
+            vehicle_pitch_counts_per_second_ = parsed;
+        }
+    }
 }
 
 ControllerInputOutput::~ControllerInputOutput() { release_all(); }
@@ -121,8 +155,12 @@ void ControllerInputOutput::release_all() noexcept {
     set_key(VK_LSHIFT, false, sprint_);
     set_mouse_button(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, false, fire_);
     set_mouse_button(MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, false, aim_);
+    set_key(VK_SPACE, false, interact_);
     smooth_turn_residual_ = 0.0F;
+    vehicle_pitch_residual_ = 0.0F;
     last_update_ = {};
+    radial_context_active_ = false;
+    set_game_context_flag(3, false);
 }
 
 void ControllerInputOutput::update(
@@ -132,10 +170,9 @@ void ControllerInputOutput::update(
         reload_previous_ = state.reload;
         fire_mode_previous_ = state.fire_mode;
         swap_previous_ = state.swap_weapon;
-        interact_previous_ = state.interact;
         vault_previous_ = state.vault;
-        stand_previous_ = state.turn_y > stick_threshold_;
-        crouch_previous_ = state.turn_y < -stick_threshold_;
+        grenade_previous_ = state.grenade;
+        radial_previous_ = state.radial_menu;
         return;
     }
 
@@ -147,22 +184,31 @@ void ControllerInputOutput::update(
     }
     last_update_ = now;
 
-    const bool ui_mode = game_cursor_is_visible();
-    const MovementKeys movement = ui_mode ? MovementKeys{} : movement_keys_from_stick(
+    const std::uint32_t context = game_context();
+    // Arma can leave the Windows cursor flagged as visible while gameplay has
+    // exclusive input.  Only the addon-reported UI context is authoritative;
+    // otherwise the runtime can accidentally disable every gameplay binding.
+    const bool ui_mode = (context & game_context_ui) != 0U;
+    const bool vehicle_mode = (context & game_context_vehicle) != 0U;
+    // Never let a stale menu/cursor flag disable locomotion.  Arma and several
+    // radial-menu mods keep UI displays alive while gameplay already resumed.
+    const MovementKeys movement = movement_keys_from_stick(
         state.move_x, state.move_y, stick_threshold_);
     set_key('W', movement.forward, forward_);
     set_key('S', movement.backward, backward_);
     set_key('A', movement.left, left_);
     set_key('D', movement.right, right_);
-    set_key(VK_LSHIFT, state.sprint && (movement.forward || movement.backward ||
-                                       movement.left || movement.right), sprint_);
+    set_key(VK_LSHIFT, state.sprint && (movement.forward ||
+        movement.backward || movement.left || movement.right), sprint_);
     // Keep native fire available for the magnified-optic fallback, where the
     // script camera is temporarily released. In proxy view SQF handles the
     // same trigger because Arma ignores this mouse event there.
-    set_mouse_button(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, state.fire, fire_);
-    set_mouse_button(MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, state.aim, aim_);
+    set_mouse_button(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
+                     state.fire, fire_);
+    set_mouse_button(MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP,
+                     state.aim, aim_);
 
-    if (smooth_turn_enabled_ && !ui_mode && delta_seconds > 0.0F) {
+    if (smooth_turn_enabled_ && delta_seconds > 0.0F) {
         const float magnitude = std::abs(state.turn_x);
         if (magnitude > stick_threshold_) {
             const float normalized = std::copysign(
@@ -182,6 +228,33 @@ void ControllerInputOutput::update(
         }
     }
 
+    if (vehicle_mode && !ui_mode && delta_seconds > 0.0F &&
+        std::abs(state.turn_y) > stick_threshold_) {
+        const float normalized = std::copysign(
+            (std::abs(state.turn_y) - stick_threshold_) /
+                (1.0F - stick_threshold_), state.turn_y);
+        vehicle_pitch_residual_ -= normalized *
+            vehicle_pitch_counts_per_second_ * delta_seconds;
+        const LONG dy = static_cast<LONG>(std::lround(vehicle_pitch_residual_));
+        vehicle_pitch_residual_ -= static_cast<float>(dy);
+        if (dy != 0) {
+            INPUT input{};
+            input.type = INPUT_MOUSE;
+            input.mi.dy = dy;
+            input.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_MOVE_NOCOALESCE;
+            (void)SendInput(1, &input, sizeof(input));
+        }
+    } else {
+        vehicle_pitch_residual_ = 0.0F;
+    }
+
+    if (ui_mode && std::abs(state.turn_y) > 0.55F &&
+        (last_ui_scroll_.time_since_epoch().count() == 0 ||
+         now - last_ui_scroll_ >= std::chrono::milliseconds(120))) {
+        scroll_mouse(state.turn_y > 0.0F ? WHEEL_DELTA : -WHEEL_DELTA);
+        last_ui_scroll_ = now;
+    }
+
     if (!proxy_weapon_actions_) {
         tap_on_rising_edge(state.reload, reload_previous_, 'R');
         tap_on_rising_edge(state.fire_mode, fire_mode_previous_, 'F');
@@ -189,17 +262,46 @@ void ControllerInputOutput::update(
         reload_previous_ = state.reload;
         fire_mode_previous_ = state.fire_mode;
     }
-    tap_on_rising_edge(state.interact, interact_previous_, VK_SPACE);
-    // Oculus Touch right B: throw the currently selected Arma grenade.
-    tap_on_rising_edge(state.vault, vault_previous_, 'G');
-    const bool stand = state.turn_y > stick_threshold_;
-    const bool crouch = state.turn_y < -stick_threshold_;
-    tap_on_rising_edge(stand, stand_previous_, 'C');
-    tap_on_rising_edge(crouch, crouch_previous_, 'X');
-    if (!proxy_weapon_actions_ && state.swap_weapon && !swap_previous_) {
-        sidearm_selected_ = !sidearm_selected_;
-        tap_key(sidearm_selected_ ? '2' : '1');
+    // Never synthesize Escape/Pause from a VR controller. Combat and movement
+    // buttons remain dedicated even when a mod keeps a UI display alive.
+    // Hold Arma's native default-action key for the real controller press
+    // duration. A zero-duration tap was easy for Arma's input polling to miss,
+    // especially on doors and vehicle interaction points.
+    set_key(VK_SPACE, state.interact && !ui_mode, interact_);
+    // Combat bindings must not disappear because a mod left an invisible
+    // helper display alive. They remain authoritative in every context.
+    tap_on_rising_edge(state.vault, vault_previous_, 'V');
+    tap_on_rising_edge(state.grenade, grenade_previous_, 'G');
+
+    if (ui_mode) {
+        const bool ui_accept = state.fire_mode;
+        tap_on_rising_edge(ui_accept, ui_accept_previous_, VK_RETURN);
+        // No UI-back binding here: Escape opens Arma's pause menu when a
+        // third-party display closes between frames.
+        ui_back_previous_ = state.swap_weapon;
+        const bool ui_middle = state.sprint_click;
+        if (ui_middle && !ui_middle_previous_) {
+            bool held{};
+            set_mouse_button(MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, true, held);
+            set_mouse_button(MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, false, held);
+        }
+        ui_middle_previous_ = ui_middle;
+    } else {
+        ui_accept_previous_ = ui_back_previous_ = ui_middle_previous_ = false;
     }
+
+    // Left grip remains reserved in this alpha. Never synthesize
+    // grave/backspace here: keyboard layouts and conflicting Arma binds made
+    // that open the native command menu instead.
+    // Do not latch a native "radial" context here. Third-party menus own their
+    // lifetime and may close without notifying the runtime. The old latch was
+    // able to disable every stick/motion binding until the process restarted.
+    radial_context_active_ = false;
+    set_game_context_flag(3, false);
+    radial_previous_ = state.radial_menu;
+    // Weapon switching and three-state posture are handled by the addon from
+    // the same controller telemetry. That is independent of keyboard profile
+    // bindings and works for arbitrary primary/handgun classes.
     swap_previous_ = state.swap_weapon;
 }
 

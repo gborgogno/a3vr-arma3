@@ -59,13 +59,20 @@ int main() {
     tracked.position = {};
     tracked.orientation = {0.0F, std::sin(half_angle), 0.0F, std::cos(half_angle)};
     const auto limited_rotation = a3vr::to_freetrack_pose(tracked);
-    assert(approximately_equal(limited_rotation.yaw, 0.325F));
+    assert(approximately_equal(limited_rotation.yaw, 0.21F));
     assert(approximately_equal(limited_rotation.pitch, 0.0F));
 
     tracked.orientation = {std::sin(half_angle), 0.0F, 0.0F, std::cos(half_angle)};
     const auto limited_vertical = a3vr::to_freetrack_pose(tracked);
     assert(approximately_equal(limited_vertical.yaw, 0.0F));
-    assert(approximately_equal(limited_vertical.pitch, 0.325F));
+    assert(approximately_equal(limited_vertical.pitch, 0.21F));
+
+    const float over_vertical_half_angle = 0.87266463F; // 100 degrees total
+    tracked.orientation = {std::sin(over_vertical_half_angle), 0.0F, 0.0F,
+                           std::cos(over_vertical_half_angle)};
+    const auto over_vertical = a3vr::to_freetrack_pose(tracked, 1.0F);
+    assert(approximately_equal(over_vertical.yaw, 0.0F));
+    assert(approximately_equal(over_vertical.pitch, 0.87266463F));
 
     a3vr::TrackedPose controller{};
     controller.orientation_valid = true;
@@ -102,5 +109,13 @@ int main() {
     const auto diagonal_movement = a3vr::movement_keys_from_stick(-0.8F, 0.9F);
     assert(diagonal_movement.forward && !diagonal_movement.backward &&
            diagonal_movement.left && !diagonal_movement.right);
+    assert(!a3vr::analog_button_pressed(0.20F, false, 0.22F, 0.12F));
+    assert(a3vr::analog_button_pressed(0.22F, false, 0.22F, 0.12F));
+    assert(a3vr::analog_button_pressed(0.13F, true, 0.22F, 0.12F));
+    assert(!a3vr::analog_button_pressed(0.12F, true, 0.22F, 0.12F));
+    assert(!a3vr::roomscale_crouch_state(0.29F, false));
+    assert(a3vr::roomscale_crouch_state(0.30F, false));
+    assert(a3vr::roomscale_crouch_state(0.19F, true));
+    assert(!a3vr::roomscale_crouch_state(0.18F, true));
     return 0;
 }

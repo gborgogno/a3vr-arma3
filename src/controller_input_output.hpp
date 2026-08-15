@@ -13,11 +13,14 @@ struct ControllerInputState {
     bool fire{};
     bool aim{};
     bool sprint{};
+    bool sprint_click{};
     bool reload{};
     bool fire_mode{};
     bool swap_weapon{};
     bool interact{};
     bool vault{};
+    bool grenade{};
+    bool radial_menu{};
 };
 
 struct MovementKeys {
@@ -29,6 +32,13 @@ struct MovementKeys {
 
 [[nodiscard]] MovementKeys movement_keys_from_stick(
     float x, float y, float threshold = 0.25F) noexcept;
+[[nodiscard]] bool analog_button_pressed(
+    float value, bool previous, float press_threshold,
+    float release_threshold) noexcept;
+[[nodiscard]] bool roomscale_crouch_state(
+    float height_drop_metres, bool previous,
+    float enter_threshold = 0.30F,
+    float exit_threshold = 0.18F) noexcept;
 
 class ControllerInputOutput final {
 public:
@@ -55,19 +65,25 @@ private:
     bool sprint_{};
     bool fire_{};
     bool aim_{};
+    bool interact_{};
     bool reload_previous_{};
     bool fire_mode_previous_{};
     bool swap_previous_{};
-    bool interact_previous_{};
     bool vault_previous_{};
-    bool stand_previous_{};
-    bool crouch_previous_{};
-    bool sidearm_selected_{};
+    bool grenade_previous_{};
+    bool radial_previous_{};
+    bool ui_accept_previous_{};
+    bool ui_back_previous_{};
+    bool ui_middle_previous_{};
+    bool radial_context_active_{};
     bool smooth_turn_enabled_{};
     float stick_threshold_{0.25F};
-    float smooth_turn_counts_per_second_{300.0F};
+    float smooth_turn_counts_per_second_{1100.0F};
+    float vehicle_pitch_counts_per_second_{950.0F};
     float smooth_turn_residual_{};
+    float vehicle_pitch_residual_{};
     std::chrono::steady_clock::time_point last_update_{};
+    std::chrono::steady_clock::time_point last_ui_scroll_{};
 };
 
 } // namespace a3vr

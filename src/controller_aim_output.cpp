@@ -1,4 +1,5 @@
 #include "controller_aim_output.hpp"
+#include "game_context.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -29,11 +30,6 @@ bool game_is_foreground(const std::uint32_t game_pid) noexcept {
     DWORD foreground_pid{};
     GetWindowThreadProcessId(foreground, &foreground_pid);
     return foreground_pid == game_pid;
-}
-
-bool game_cursor_is_visible() noexcept {
-    CURSORINFO info{sizeof(info)};
-    return GetCursorInfo(&info) != FALSE && (info.flags & CURSOR_SHOWING) != 0;
 }
 
 float dot(const Vec3 a, const Vec3 b) noexcept {
@@ -149,7 +145,12 @@ void ControllerAimOutput::update(const TrackedPose& controller,
         return;
     }
 
-    const bool cursor_mode = cursor_forced_ || game_cursor_is_visible();
+    // Normal tracked motion is deliberately shared by gameplay and menus:
+    // relative mouse input aims the weapon in-game and moves Arma's cursor in
+    // an interface.  Consequently a stale/misreported UI state can never take
+    // weapon motion away again. F10 remains an optional absolute laser-pointer
+    // override for unusual third-party interfaces.
+    const bool cursor_mode = cursor_forced_;
     if (cursor_mode) {
         const ControllerCursorPosition target = controller_cursor_position(
             controller, head, kCursorHorizontalFov, kCursorVerticalFov);
