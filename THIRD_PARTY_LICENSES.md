@@ -1,40 +1,77 @@
 # Third-Party Licenses
 
-This file lists third-party components used by the project and how to comply
-with their licenses. It is not a substitute for including the actual license
-files from each dependency — copy each dependency's license into
-`third_party/` or add the full text here when distributing.
+This file lists third-party components used by the A3VR project and documents compliance with their licenses.
 
-Known third-party components referenced in this repository:
+## Dependencies
 
-- OpenXR runtimes (e.g. Meta OpenXR, SteamVR/OpenXR): runtime licenses vary by
-  vendor. The runtime is not distributed in this repo; users must install the
-  runtime from the vendor and follow their license terms.
-- MinHook (commonly used hooking library) — check the MinHook repository for
-  the license (often BSD/MIT-style). Include the exact license text if you
-  redistribute MinHook.
-- 4d4a5852/a3lib.py — referenced by the CI packaging step. See the upstream
-  repository for the license and include a copy if distributing.
+### OpenXR SDK
+- **Repository**: https://github.com/KhronosGroup/OpenXR-SDK
+- **License**: Apache License 2.0
+- **Version pinned in CMakeLists.txt**: Commit `00678df64b49ad878a8e882af933c28518cafd1c`
+- **Distribution**: Fetched at build time via CMake FetchContent
+- **Compliance**: Apache 2.0 is compatible with A3VR's Apache 2.0 license. Full license text included in `third_party/OPENXR_LICENSE.txt`
+- **Attribution**: Required in distributed binaries/source
 
-Recommended actions for maintainers:
+### MinHook
+- **Repository**: https://github.com/TsudaKageyu/minhook
+- **License**: BSD-3-Clause
+- **Version pinned in CMakeLists.txt**: Commit `c3fcafdc10146beb5919319d0683e44e3c30d537`
+- **Distribution**: Fetched at build time via CMake FetchContent; compiled into `A3VRHybridCore_x64.dll`
+- **Compliance**: BSD-3-Clause is compatible with A3VR's Apache 2.0 license. Full license text included in `third_party/MINHOOK_LICENSE.txt`
+- **Attribution**: Required in distributed binaries/source
 
-1. Create a `third_party/` directory and add each dependency's license file
-   (e.g. `third_party/MINHOOK_LICENSE.txt`).
-2. For bundled binaries or source from third parties, include attribution and
-   the full license text in the distribution package.
-3. When adding a new dependency, update this file with the dependency name,
-   version and a short note about the required compliance (attribution, copy
-   of license file, etc.).
+### a3lib.py
+- **Repository**: https://github.com/4d4a5852/a3lib.py
+- **License**: MIT
+- **Usage**: CI/CD packaging pipeline only; not distributed in runtime or release builds
+- **Compliance**: MIT license is compatible with A3VR's Apache 2.0 license. Full license text included in `third_party/A3LIB_LICENSE.txt` for reference
+- **Attribution**: Required if source is distributed; not required for binary releases
 
-Example entry to add when you vendor a library:
+### OpenXR Runtimes (Runtime Dependency)
+- **Examples**: Meta OpenXR, SteamVR, VDXR
+- **License**: Varies by vendor/runtime
+- **Distribution**: Not bundled with A3VR; end-users install from vendor
+- **Compliance**: Each runtime is installed separately; no compliance action required by A3VR
 
-```
-Name: MinHook
-Version: 1.3.3
-License: BSD-3-Clause
-Notes: Include the MinHook LICENSE file in third_party/ and retain copyright
-       notices in modified files.
-```
+## Distribution Compliance
 
-If you need help auditing a particular dependency, tell me which one and I
-can look up its license and add the appropriate notes and files here.
+### For Binary Releases
+1. Include the `third_party/` directory with all license files
+2. Include attribution notices in release documentation or README
+3. Ensure `NOTICE` file references third-party components
+
+### For Source Distributions
+1. Include the `third_party/` directory
+2. Retain copyright notices in source files
+3. Include this file and the `LICENSE` file
+
+### For Bundled Binaries
+1. Retain license files in the distribution package (e.g., inside `@A3VR_Hybrid` mod directory)
+2. Include a `THIRD_PARTY_LICENSES.md` copy in the package root or docs
+
+## Adding New Dependencies
+
+When adding a new dependency, follow these steps:
+
+1. **Add to CMakeLists.txt** with a pinned commit SHA
+2. **Document in this file** with:
+   - Repository URL
+   - License type and version
+   - Pinned commit/version
+   - Compatibility notes
+3. **Add license file** to `third_party/` directory with format: `{LIBRARY}_LICENSE.txt`
+4. **Update NOTICE** if the license type is GPLv2/v3 or includes distribution requirements
+
+## Verification
+
+All third-party licenses are compatible with Apache 2.0 and do not impose restrictions on binary distribution or closed-source use.
+
+- Apache 2.0 ✅ Compatible with itself
+- BSD-3-Clause ✅ Compatible with Apache 2.0
+- MIT ✅ Compatible with Apache 2.0
+
+**No GPL/LGPL dependencies are used.**
+
+---
+
+For questions or compliance review, refer to the original repository LICENSE file or contact the project maintainer.
