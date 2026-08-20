@@ -379,3 +379,6 @@ This project is licensed under the Apache License 2.0. See the `LICENSE` file
 for full terms. A short `NOTICE` file is included in the repository.
 
 Copyright 2026 gborgogno
+
+<img width="1024" height="1536" alt="image" src="https://github.com/user-attachments/assets/7c205a28-1fb3-4a15-9a42-9413dd65b72e" />
+
