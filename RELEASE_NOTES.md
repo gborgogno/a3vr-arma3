@@ -22,7 +22,7 @@ UI context handling, and official Launcher integration.
   supported map/inventory UI retains the software cursor and guide ray.
 - One official-Launcher flow for all DLC and mod presets. No DLC-specific start
   script is required.
-- Reproducible tag packaging, immutable CI/dependency pins, SHA-256 release
+- Repeatable tag packaging, immutable CI/dependency pins, SHA-256 release
   assets, secret scanning, static analysis, and Microsoft Defender scanning.
 
 ## Important limitations

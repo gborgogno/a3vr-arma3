@@ -53,12 +53,15 @@ experiments, and recovery worktrees were not release inputs.
 ## Package identity
 
 - File: `A3VR-Hybrid-v1.0.0.zip`
-- Size: `300932` bytes
 - Entries: `16`, under one `@A3VR_Hybrid` root
-- SHA-256:
-  `4ad748d3d9ca76ed58efa61385ed9e2a93015147b9ae043e355328cab09a99ef`
-- Sidecar hash verification: passed
+- Sidecar SHA-256 verification: passed for the locally scanned package
 - Forbidden build/profile/video/debug entries: none
+
+The compiler/linker inputs are deterministic and the two independent build
+trees produced identical native binaries. PowerShell's ZIP container records
+packaging timestamps, so the complete ZIP hash is generated per packaging run
+and is intentionally not embedded in this source document. The `.sha256` asset
+published beside the GitHub release is authoritative for the downloadable ZIP.
 
 Packaged native files:
 
