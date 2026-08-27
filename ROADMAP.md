@@ -1,57 +1,45 @@
-# A3VR interaction roadmap
+# A3VR roadmap after 1.0.0
 
-The interaction layer must preserve Arma's native inventory, ballistics and
-multiplayer authority. Visual proxies should represent interactions; they must
-not become a second, conflicting weapon simulation.
+The 1.0.0 release establishes the current hybrid boundary: Arma remains
+authoritative for gameplay while OpenXR, presentation, motion input, and local
+visual proxies provide the VR layer.
 
-## Phase 1 — tracking foundation (v24)
+## Shipped foundation
 
-- [ ] Decouple headset rotation from right-controller mouse aim.
-- [ ] Publish left-hand 6DoF pose.
-- [ ] Publish controller-derived thumb/index/grip curls without changing the
-  existing tracking-array indices.
+- [x] Experimental per-eye RTT gameplay presentation and complete-frame UI.
+- [x] FreeTrack headset pose and OpenXR controller input.
+- [x] Config-driven controller-absolute weapon proxy.
+- [x] Native ammo, cadence, projectile, damage, sound, reload, and fire-state
+  synchronization.
+- [x] Best-effort muzzle, cartridge, magazine, ammunition-box, and belt visuals.
+- [x] Analog locomotion, smooth turn, stance control, footsteps, and haptics.
+- [x] Controller chords and conflict-free in-game settings access.
+- [x] Map/inventory proxy transitions and physical-mouse ownership for
+  configuration, Zeus, Eden, and custom dialogs.
+- [x] One official-Launcher workflow for DLC and other mod presets.
 
-## Phase 2 — visible left hand (v25 calibration proxy)
+## Next priorities
 
-- [ ] Render a local line-art wrist, palm and articulated fingers from live
-  tracking, toggled with F7.
-- [ ] Show RGB wrist axes so controller-model alignment can be calibrated without
-  affecting the camera or native weapon.
-- [ ] Create or license a redistributable P3D hand mesh with a small finger
-  skeleton and neutral/point/grip poses.
-- [ ] Drive the wrist from the OpenXR left-hand pose.
-- [ ] Drive the index from trigger, the grip fingers from squeeze and the thumb
-  from capacitive touch where available.
-- [ ] Keep the hand local-only and non-authoritative.
+- [ ] Broaden live test coverage across OpenXR runtimes and controller profiles.
+- [ ] Add deterministic regression scenarios for campaign UI/context handoff.
+- [ ] Expand config-driven weapon fixtures for unusual P3D axes, ejection
+  points, belt selections, shotguns, and scripted fire modes.
+- [ ] Improve vehicle/seat/turret controller mappings without overriding native
+  mission controls.
+- [ ] Investigate a separately packaged physical-optics path that cannot create
+  duplicate cameras or weapons in the core mod.
+- [ ] Add optional OpenXR hand-joint support only after a redistributable,
+  correctly rigged hand asset and safe fallback exist.
+- [ ] Add Authenticode signing and Arma PBO key signing when release
+  infrastructure is available.
 
-## Phase 3 — optical hand joints
+## Non-negotiable constraints
 
-- [ ] Add optional `XR_EXT_hand_tracking` support.
-- [ ] Publish all OpenXR hand joints when the active runtime supports them.
-- [ ] Fall back cleanly to controller-derived curls when optical tracking is not
-  available or controllers are held.
-
-## Phase 4 — body interaction zones
-
-- [ ] Shoulder/back zone selects or holsters long guns.
-- [ ] Hip zone selects or holsters the sidearm.
-- [ ] Chest zones expose magazines, grenades and selected accessories as local
-  visual proxies generated from the actual Arma loadout.
-- [ ] Add spatial hysteresis and deliberate grip gestures to prevent accidental
-  activation during normal movement.
-
-## Phase 5 — manual weapon actions
-
-- [ ] Magazine grab validates the selected magazine against the native weapon.
-- [ ] Magazine insertion triggers Arma's authoritative reload action and animation.
-- [ ] Charging/bolt gesture provides visual feedback where the weapon supports it.
-- [ ] Grenade grab maps to Arma's native throwable selection and release.
-
-## Constraints
-
-- Vanilla Arma does not expose arbitrary per-finger pose control for the
-  soldier model; a dedicated hand proxy and animations are required.
-- Controller inputs cannot provide five truly independent fingers. Optical
-  tracking or hardware-specific skeletal input is required for that fidelity.
-- Generic support for every modded weapon requires config-driven discovery and
-  native Arma actions, never a hard-coded weapon list.
+- The real Arma unit remains authoritative for inventory, ballistics, damage,
+  collision, score, AI identity, and mission ownership.
+- Generic support must be config-driven; a single weapon/DLC must never become
+  the global implementation.
+- Experimental presentation paths require a rollback and in-headset comfort
+  validation before becoming defaults.
+- Automated native tests are not presented as proof of SQF, headset, weapon, or
+  campaign behavior.

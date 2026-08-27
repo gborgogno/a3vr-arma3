@@ -5,6 +5,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$A3LibScript,
     [string]$OutputDirectory = "",
+    [string]$PrereleaseLabel = "",
     [string]$Python = "python"
 )
 
@@ -36,7 +37,11 @@ if ($CMake -notmatch 'project\(A3VR VERSION ([0-9]+\.[0-9]+\.[0-9]+)') {
     throw "Could not read A3VR version from CMakeLists.txt."
 }
 $Version = $Matches[1]
-$PackageBaseName = "A3VR-Hybrid-v$Version"
+if ($PrereleaseLabel -and $PrereleaseLabel -notmatch '^[0-9A-Za-z.-]+$') {
+    throw "Invalid prerelease label: $PrereleaseLabel"
+}
+$PackageVersion = if ($PrereleaseLabel) { "$Version-$PrereleaseLabel" } else { $Version }
+$PackageBaseName = "A3VR-Hybrid-v$PackageVersion"
 $StagingRoot = Join-Path $OutputDirectory "$PackageBaseName-staging"
 $ModDirectory = Join-Path $StagingRoot "@A3VR_Hybrid"
 $AddonDestination = Join-Path $ModDirectory "addons"
@@ -44,7 +49,7 @@ $ZipPath = Join-Path $OutputDirectory "$PackageBaseName.zip"
 $HashPath = "$ZipPath.sha256"
 
 $NativeDll = Join-Path $BuildDirectory "$Configuration\A3VRHybridCore_x64.dll"
-$RuntimeExe = Join-Path $BuildDirectory "$Configuration\A3VRRuntime_v30.exe"
+$RuntimeExe = Join-Path $BuildDirectory "$Configuration\A3VRRuntime_v31.exe"
 foreach ($RequiredFile in @($NativeDll, $RuntimeExe, $A3LibScript)) {
     if (-not (Test-Path -LiteralPath $RequiredFile -PathType Leaf)) {
         throw "Required release input not found: $RequiredFile"
@@ -70,12 +75,17 @@ New-Item -ItemType Directory -Force -Path $AddonDestination | Out-Null
 Copy-Item -Force -LiteralPath $NativeDll -Destination $ModDirectory
 Copy-Item -Force -LiteralPath $RuntimeExe -Destination $ModDirectory
 foreach ($ProjectFile in @(
+    "a3vr-motion.ini",
     "mod.cpp",
     "README.md",
     "ROADMAP.md",
+    "RELEASE_NOTES.md",
+    "SECURITY.md",
+    "LICENSE",
+    "NOTICE",
+    "THIRD_PARTY_LICENSES.md",
     "START_A3VR.cmd",
-    "START_A3VR_LAUNCHER.cmd",
-    "START_A3VR_SOG.cmd"
+    "START_A3VR_LAUNCHER.cmd"
 )) {
     Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot $ProjectFile) -Destination $ModDirectory
 }
@@ -104,7 +114,9 @@ try {
 $RequiredPboEntries = @(
     "config.cpp",
     "functions\fn_preStart.sqf",
-    "functions\fn_postInit.sqf"
+    "functions\fn_postInit.sqf",
+    "functions\fn_trackingLoop.sqf",
+    "functions\fn_gameContextLoop.sqf"
 )
 foreach ($Entry in $RequiredPboEntries) {
     if ($PboEntries -notcontains $Entry) {

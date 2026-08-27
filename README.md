@@ -1,279 +1,344 @@
-# A3VR
+# A3VR Hybrid
 
-**Current public test build: 1.14.0-alpha.1.**
+**Current release: `1.0.0`**
 
-A3VR is an experimental hybrid OpenXR bridge for 64-bit Arma 3. It presents
-the game's D3D11 output in a headset, publishes headset movement through
-Arma's FreeTrack-compatible input path and maps OpenXR controllers to native
-Arma controls. It does **not** require VorpX.
+A3VR Hybrid is an experimental OpenXR bridge for 64-bit Arma 3. It presents
+Arma's D3D11 output in a headset, publishes headset motion through Arma's
+FreeTrack-compatible input path, maps OpenXR motion controllers to native game
+input, and provides an optional controller-absolute weapon proxy.
 
-This is an early community alpha, not a native VR port and not an official
-Bohemia Interactive product. The initial release prioritizes functional head
-tracking, comfort, compatibility and correct native weapon behavior. Full
-VR-grade 6DoF camera behavior, independent hands and stereo rendering remain
-in development.
+It does **not** require VorpX and is not a native engine VR port. Gameplay
+stereo is produced with two Arma render-to-texture cameras; menus and
+cinematics use one complete binocular surface so interface controls are not
+split between the eyes. Stop immediately if you experience nausea, headache,
+eye strain, image divergence, or other visual discomfort.
 
-## Quick start
+This is an unofficial community project and is not affiliated with Bohemia
+Interactive.
 
-1. Subscribe through the Steam Workshop, or extract the release so that the
-   complete `@A3VR_Hybrid` directory is available to the Arma 3 Launcher.
-2. Start the headset and select the OpenXR runtime you intend to use.
-3. In the official Arma 3 Launcher, enable **A3VR - Arma 3 Hybrid VR**. Disable
-   every older or duplicate A3VR variant.
-4. Disable BattlEye. The native bridge is not signed for protected multiplayer.
-5. In Arma's controller/device settings, make sure FreeTrack is enabled when
-   it is listed.
-6. Start the game normally. Press `F8` once in game to recenter. If the right
-   controller does not move the aim, press `F9` once.
+## Release 1.0 highlights
 
-The addon starts the OpenXR runtime bridge automatically, so a separate script
-is not required for the bridge itself. The FOV/graphics profile is different:
-subscribing to the Workshop item and enabling it in the Launcher does **not**
-apply that profile automatically. With Arma closed, run
-`START_A3VR_LAUNCHER.cmd` from the mod directory once, or apply the settings
-manually. The supplied script creates backups before changing the Arma profile.
+- Experimental left/right stereo presentation with synchronized UI/gameplay
+  context switching and a complete menu/cinematic frame.
+- Six-axis headset tracking through Arma's FreeTrack input path.
+- Right- or left-controller aiming, head- or body-relative movement, analog
+  locomotion, smooth turning, progressive stance input, and room-scale crouch.
+- A config-driven VR weapon proxy generated from the equipped weapon,
+  attachments, magazine, textures, materials, muzzle, and selected fire mode.
+- Native player inventory, loaded-ammo count, per-mode cadence, projectile,
+  damage, sound, reload state, and fire validation remain authoritative.
+- Best-effort support for configured muzzle flash/smoke, cartridge ejection,
+  detachable magazines, ammunition boxes, and belt animation sources.
+- Native semi-auto, burst, full-auto, shotgun, launcher, rifle, pistol, and
+  machine-gun definitions are discovered instead of using a fixed weapon list.
+- The real player remains responsible for movement, gravity, collision,
+  damage, score, AI identity, inventory, and mission ownership.
+- Proxy cleanup and native-control fallback around vehicles, death, respawn,
+  Team Switch, remote control, cinematics, map, inventory, Zeus, Eden, and
+  blocking dialogs.
+- Optional objective and living-squad markers in the proxy camera.
+- OpenXR haptics for firing, incoming damage, and explosions.
+- Surface-aware footsteps and focus-independent proxy locomotion.
+- Direct controller chords for map, inventory, laser/light, bipod, and
+  proxy/native weapon control.
+- A controller-accessible A3VR settings panel; former `F5`-`F10` shortcuts were
+  removed to avoid conflicts with Arma's native function keys.
+- Capture-safe software cursor and guide ray for supported controller UI.
+  Start screens, configuration dialogs, Zeus, Eden, and custom DLC dialogs are
+  intentionally controlled by the physical mouse.
+- Automatic runtime startup when the mod is loaded through the official Arma 3
+  Launcher. No DLC-specific start script is required.
+- Reversible stereo graphics/FOV profile with backups of changed Arma files.
 
-## Bindings, FreeTrack and FOV setup
+## What is not included
 
-- VR-controller mappings are built into the A3VR runtime. A Steam Input profile
-  is not required.
-- The mappings send Arma's native mouse, keyboard and controller actions. They
-  assume the relevant default Arma bindings; customized bindings can cause an
-  action to stop matching its documented VR button.
-- FreeTrack must still be enabled manually in Arma's controller/device settings.
-- Loading the Workshop addon starts A3VR, but does not execute the external
-  FOV/graphics configuration script.
-- Run `START_A3VR_LAUNCHER.cmd` with Arma closed to apply the supplied FOV and
-  graphics profile, then continue through the official Launcher. Reapply it if
-  Arma or another mod later replaces those profile values.
-- For manual configuration, see the community guide
-  [How to increase FOV in ARMA](https://steamcommunity.com/sharedfiles/filedetails/?id=1731376270).
-  It is an external reference, not an A3VR dependency; back up the profile
-  before making manual changes.
+- A native engine VR renderer.
+- Independent physical hands, arm IK, optical hand tracking, or manual
+  magazine/bolt interactions.
+- Core PiP/depth optics. Native ADS is the fallback for magnified scopes.
+- Guaranteed compatibility with every modded weapon, scripted campaign UI,
+  vehicle, controller layout, or OpenXR runtime.
+- BattlEye compatibility, multiplayer signatures, or permission to use native
+  modifications on protected servers.
 
-Keyboard and mouse should remain available because Arma has many contextual
-commands that do not yet have VR bindings.
+## Requirements
 
-## Runtime compatibility
-
-- **Validated:** Meta Quest over Air Link using Meta OpenXR.
-- **Community-reported:** VDXR can work, but remains under evaluation.
-- **Not yet validated:** Virtual Desktop through SteamVR, native SteamVR
-  headsets and Pimax.
-
-Only one application can own the active OpenXR session. If the headset shows
-no image, confirm that the intended runtime is active before starting Arma and
-close other VR applications that may already own the session.
-
-## What “hybrid” means
-
-A3VR adds OpenXR presentation, headset tracking and controller input around
-Arma's existing renderer and animation systems. The compatibility default is
-**comfort-mono**: one game surface is submitted to both eyes. It provides a
-stable binocular image and head-tracked spatial cues, but it is not native
-per-eye stereoscopic rendering and does not provide true binocular depth.
-
-Head rotation and translation are transported through Arma's six-axis
-FreeTrack path. Correct VR-scale translation, camera constraints and broader
-hardware compatibility are still being refined, so the current 6DoF support
-should be considered work in progress.
-
-## Common questions and troubleshooting
-
-### The image appears, but head tracking does not work
-
-- Enable FreeTrack in Arma's controller/device settings.
-- Make sure only `@A3VR_Hybrid` is loaded; do not combine it with legacy
-  `@A3VR` or another VR bridge.
-- Press `F8` after entering the game.
-
-### Head tracking works, but controller aiming does not
-
-- Wake both controllers before starting Arma.
-- Press `F9` once to enable motion aiming.
-- Test without controller-remapping or radial-menu mods before reporting a
-  binding problem.
-
-### The image looks too close or has black borders
-
-The game FOV and the OpenXR presentation surface both affect apparent scale.
-The comfort profile intentionally accepts moderate borders to reduce zoom and
-retain clarity. Avoid combining multiple A3VR/FOV overrides while diagnosing
-the problem.
-
-### Is this true stereo VR?
-
-Not in the current public alpha. Both eyes receive the same comfort-mono game
-surface. Native per-eye rendering requires deeper engine-level camera and
-render work and is being investigated separately.
-
-### Can it be used in multiplayer?
-
-Use it locally or only on servers that explicitly allow client-side native
-modifications. Keep BattlEye disabled and do not join protected servers.
-
-## Current features
-
-- OpenXR headset presentation.
-- Six-axis headset pose through Arma's FreeTrack input path; full VR-grade
-  6DoF behavior remains in development.
-- Native first-person weapon, hands, attachments, muzzle effects and
-  projectiles; no detached or floating weapon copy is created.
-- F8 recenters the VR spatial basis.
-- Left-hand 6DoF pose and controller-derived finger-curl telemetry.
-- Local left-hand calibration skeleton with articulated fingers (F7).
-- Controller movement, firing, aiming, sprint, reload, interaction, fire mode
-  and weapon switching.
-- Automatic VR-controller cursor in Arma menus and smooth body turning.
-- Automatic OpenXR runtime startup when the addon is enabled.
-- Early logo/menu capture with stable swapchain handover.
-- Automatic runtime cleanup when Arma exits.
-- Recenter and motion-aim toggles.
-
-## Controls
-
-The default bindings target Oculus Touch, Valve Index and Microsoft motion
-controllers where matching OpenXR paths are available.
-
-| Input | Action |
-| --- | --- |
-| Headset | Arma head tracking |
-| Right controller movement | Aim in game / point at the UI cursor in menus |
-| Right trigger | Fire |
-| Right grip | Aim down sights |
-| Right A | Reload |
-| Right thumbstick click | Fire mode |
-| Right B | Throw selected grenade (`G`) |
-| Left trigger | Vault / step over (`V`) and index-finger input |
-| Left grip | Toggle Action Menu radial wheel (`~`) |
-| Left thumbstick | Move and strafe |
-| Right thumbstick horizontal | Smooth camera/body turn |
-| Right thumbstick up/down | Stand / crouch |
-| Left thumbstick click | Sprint |
-| Left X / A | Interact |
-| Left Y / B | Switch primary/sidearm |
-| F8 | Recenter head tracking |
-| F7 | Toggle the left-hand calibration skeleton |
-| F9 | Toggle motion aiming |
-| F10 | Force/release VR UI cursor mode |
-
-Each deliberate right-stick vertical flick changes one stance level: stand,
-crouch or prone. Return the stick to center before the next step. In menus,
-map, inventory, Zeus and the supported Action Menu radial wheel, point with the right controller. A cyan
-cursor marks the actual click position; the trigger clicks and the right stick
-scrolls. No VR button sends Escape or opens the pause menu. On foot, right
-stick up selects stand and down selects crouch. In vehicles the vertical axis
-controls view pitch instead, while the horizontal axis retains smooth turn.
-In Zeus, the left stick moves the camera. The default smooth-turn rate is
-`620` counts/second and the trigger uses a
-low-threshold hysteresis (`0.22` press / `0.12` release) for a quicker response.
-
-F9 remains an emergency keyboard-only motion-aim toggle for vehicle testing.
-Magnified and engine-driven PiP optics still use right grip because Arma only
-activates those render paths through its native optics camera.
-
-## Architecture
-
-- `A3VRRuntime_v30.exe` owns the OpenXR session, tracks the headset and
-  controllers, submits frames and publishes FreeTrack data.
-- `A3VRHybridCore_x64.dll` is loaded by Arma, captures the D3D11 backbuffer and
-  exchanges tracking/render data with the runtime through shared memory.
-- The small SQF addon starts the bridge and exposes the current OpenXR sample
-  as `missionNamespace getVariable "A3VRHybrid_tracking"`.
-
-OpenXR and MinHook are fetched from pinned upstream commits during the CMake
-configure step; generated build trees and third-party installers are not
-committed.
-
-## Player requirements
-
-- Windows 10/11 x64.
+- Windows 10 or 11, x64.
 - 64-bit Arma 3.
-- An active OpenXR runtime and connected headset.
-- FreeTrack enabled in Arma's controller/device settings.
+- A working OpenXR headset/runtime.
+- Arma's FreeTrack controller enabled when it appears in the controller list.
 - BattlEye disabled.
+- Keyboard and mouse available for Arma's contextual and mod-specific actions.
 
-## Build requirements
+The primary development environment is Meta Quest over Air Link using Meta
+OpenXR. VDXR has worked in community tests. SteamVR-native headsets, Virtual
+Desktop through SteamVR, Pimax, Valve Index, and Windows Mixed Reality remain
+experimental unless explicitly listed in a release test report.
 
-- Visual Studio 2022 C++ Build Tools and CMake 3.24+ to build.
-- Arma 3 Tools/Addon Builder to package the PBO.
+## Install and start
+
+1. Download `A3VR-Hybrid-v1.0.0.zip` and its adjacent `.sha256` file from the
+   GitHub release.
+2. Verify the ZIP hash, then extract the complete `@A3VR_Hybrid` directory.
+3. Start the headset and activate the intended Windows OpenXR runtime.
+4. In the official Arma 3 Launcher, choose **Mods > Mod local** and select the
+   extracted `@A3VR_Hybrid` directory.
+5. Enable A3VR together with the desired DLC and other mods in the same Launcher
+   preset. Disable every older A3VR variant and disable BattlEye.
+6. Enable FreeTrack in Arma's controller/device settings if it is listed.
+7. Click **Play** in the official Launcher. Once in gameplay, hold the left
+   grip to open A3VR settings and select **Recenter HMD + Aim**.
+
+The addon starts `A3VRRuntime_v31.exe` automatically. It uses the active Windows
+OpenXR runtime and does not force a vendor-specific runtime or DLC preset.
+
+`START_A3VR.cmd` and `START_A3VR_LAUNCHER.cmd` are optional helpers. With Arma
+closed, they apply the reversible stereo profile and open the official Launcher;
+they do not start a separate SOG, Prairie Fire, Spearhead, or other DLC build.
+
+## Controller bindings
+
+The table below describes the Meta Touch labels. Valve Index and Windows Mixed
+Reality differences follow it. A customized Arma keyboard/mouse layout may
+prevent a simulated native key from matching the action shown in parentheses.
+
+| Input | Gameplay action |
+| --- | --- |
+| Headset | FreeTrack head rotation and translation |
+| Right controller movement | Aim the equipped weapon |
+| Right trigger | Fire |
+| Right grip | Hold native ADS/optics when enabled in A3VR settings |
+| Right A | Reload (`R`) |
+| Right B | Throw selected grenade (`G`) |
+| Right thumbstick horizontal | Analog smooth turn |
+| Right thumbstick up/down | Raise/lower one stance level; vehicle/turret pitch in vehicles |
+| Right thumbstick click | Change fire mode (`F`); Enter in controller-capable UI |
+| Left controller movement | Aim when left-handed aim is selected |
+| Left thumbstick | Analog move and strafe |
+| Left thumbstick click | Sprint; middle-click in controller-capable UI |
+| Left trigger | Vault/step over (`V`) |
+| Left X | Interact/default action (`Space`) |
+| Left Y | Switch primary weapon/sidearm |
+| Left grip, hold 0.65 seconds | Open/close A3VR settings |
+
+### Left-grip chords
+
+Hold the left grip, press the second control, then release both. These chords
+are edge-triggered so the underlying reload, fire-mode, grenade, or weapon-swap
+action is not also sent.
+
+| Chord | Action |
+| --- | --- |
+| Left grip + Right A | Toggle equipped laser or flashlight (`L`) |
+| Left grip + Right thumbstick click | Deploy/retract weapon or bipod (`C`) |
+| Left grip + Right B | Toggle VR proxy / Native motion |
+| Left grip + Left X | Open/close native map (`M`) |
+| Left grip + Left Y | Open/close native inventory (`I`) |
+
+No controller binding sends Escape or opens Arma's pause menu.
+
+### Valve Index labels
+
+The trigger, grip, sticks, and stick clicks keep the same roles. Right A reloads,
+Right B throws a grenade, Left A interacts, and Left B switches weapon. Apply
+the same left-grip chords using those labels.
+
+### Windows Mixed Reality labels and limits
+
+The suggested OpenXR profile maps the right trigger to fire, left trigger to
+vault, left/right sticks to movement/turn, left-stick click to sprint, right
+menu to reload, right-stick click to fire mode, and left menu to interact.
+Right-grip ADS, the left-grip modifier, grenade, and weapon-swap are not assigned
+by the built-in WMR profile and may require runtime remapping or keyboard/mouse.
+
+### Analog locomotion and stance
+
+Left-stick magnitude controls walking speed and returns immediately to neutral
+when released. Pushing the stick past the sprint threshold or clicking it runs.
+Each deliberate right-stick vertical flick changes one stance level; return the
+stick to center before the next change. A head-height drop of about 30 cm after
+recenter can also request crouch, with hysteresis to prevent flicker.
+
+## In-game settings
+
+Open settings by holding the left grip for 0.65 seconds or clicking
+**A3VR VR SETTINGS** in pause, map, or inventory. The panel itself uses the
+physical mouse so motion controls cannot steal focus from configuration.
+
+| Setting | Values | Default |
+| --- | --- | --- |
+| Gameplay aim | Right controller / Left controller | Right controller |
+| Menu pointer | Head gaze / Right controller | Head gaze |
+| Smooth turning | Comfort / Normal / Fast | Fast |
+| 2D UI scale | Full frame / Larger | Full frame |
+| Tracking diagnostic | Off / On | Off each session |
+| Movement direction | Head direction / Body direction | Head direction |
+| Native ADS on right grip | On / Off | On |
+| Proxy HUD / mission markers | Off / On | On |
+| Weapon recoil | Off / Comfort / Normal | Normal |
+| Weapon control | Native motion / VR proxy | VR proxy |
+| Motion aiming | Frozen / Live controller | Live controller |
+
+Settings are saved in the Arma profile except the diagnostic overlay, which is
+session-only and always starts disabled.
+
+## Weapon control modes
+
+### VR proxy
+
+The proxy is the controller-absolute mode. It creates a local visual weapon from
+the currently equipped class while a hidden native firing path remains tied to
+the real unit. The selected muzzle and fire mode provide cadence and ammunition
+rules; fire effects are emitted only after a validated native shot consumes
+ammo. Empty weapons therefore do not produce proxy muzzle flashes or forced
+background reload sounds.
+
+Magazine, box, belt, muzzle-effect, and cartridge animation support is
+config-driven and best effort. When a weapon provides standard memory points or
+animation sources, effects follow the proxy weapon transform. Unusual P3D axes,
+custom scripts, or absent selections can still require weapon-specific support.
+
+### Native motion
+
+Native motion restores Arma's ordinary first-person body, weapon, animations,
+and firing. Head tracking and controller-to-mouse aiming remain available. Use
+it for vehicles, scripted sequences, unsupported weapons, or diagnosis.
+
+## UI, map, inventory, Zeus, and DLC menus
+
+- Start/loading screens, pause, A3VR settings, Arma configuration screens,
+  Zeus, Eden, and focused third-party/DLC dialogs use the physical mouse.
+- Map and inventory keep the configured head/controller pointer and their grip
+  chords so they can be opened and closed from proxy mode.
+- Supported controller UI shows a capture-safe cursor and dotted guide ray;
+  right trigger clicks, right stick scrolls, right-stick click accepts, and
+  left-stick click sends middle mouse.
+- Normal gameplay hides the software cursor and releases UI-only input.
+- Campaign and mod UI classification is heuristic. If a scripted display keeps
+  control after it visually closes, switch temporarily to Native motion, close
+  the display with mouse/keyboard, then return to VR proxy.
+
+The optional proxy HUD mirrors active task destinations and living group
+members only. It cannot reproduce every icon made by a mission, ACE, Zeus
+Enhanced, or another addon.
+
+## Known limitations
+
+- Stereo RTT is experimental and more expensive than the earlier mono surface.
+  PiP must remain enabled. Menus/cinematics temporarily use a single complete
+  binocular image rather than independent per-eye UI cameras.
+- This release does not make Arma a native VR renderer. Head/body scale, FOV,
+  latency, reprojection, and peripheral distortion can vary by runtime and GPU.
+- FreeTrack may not appear until the A3VR runtime is running or Arma's controller
+  list has been refreshed.
+- UI/cinematic detection is heuristic. Custom campaign displays can keep the
+  cursor visible, delay proxy activation, or restore gameplay framing late.
+- Magnified PiP/depth optics are not implemented in the core release. Use native
+  ADS for scopes; physical iron sights can be used without ADS.
+- There are no independent hands/arms or manual VR reloads. Reload uses Arma's
+  native inventory timing and available model animations.
+- Generic weapon support cannot guarantee correct geometry for every addon.
+  Nonstandard model axes, memory points, magazines, belt selections, muzzle
+  definitions, scripted firing, or shell effects can be missing or misaligned.
+- Cartridge ejection and muzzle smoke are visual mirrors of validated native
+  fire. They are disabled when a safe weapon-relative origin cannot be found;
+  they never replace native ammunition or ballistics.
+- Belt and detachable-magazine visibility depends on the weapon exposing usable
+  animation sources/selections. Static or custom-scripted models may not animate.
+- Native projectiles, hit transfer, and proxy cleanup are experimental around
+  missions that replace damage, inventory, ownership, or camera behavior.
+- Door, ladder, vehicle, medical, ACE, and mission-specific interactions can
+  still require keyboard/mouse.
+- Vehicles use native control; mapping is incomplete across all seats/turrets.
+- The PBO and native binaries are not multiplayer-signed. Do not use A3VR with
+  BattlEye or on protected servers.
+- Only one application can own the active OpenXR session. Other VR games or
+  overlays can prevent A3VR from presenting.
+- The native binaries are not Authenticode-signed. Verify the published SHA-256
+  before running a downloaded package.
+
+## Troubleshooting
+
+### Flat or head-locked image
+
+- Confirm the intended OpenXR runtime is active and both controllers are awake.
+- Load only one A3VR variant.
+- Enable FreeTrack in Arma and use **Recenter HMD + Aim** in gameplay.
+- If FreeTrack is absent, exit Arma, run `START_A3VR_LAUNCHER.cmd`, and launch
+  again through the official Launcher.
+
+### Movement/fire stops or a cursor remains in gameplay
+
+- Close the visible dialog with the physical mouse or keyboard.
+- Toggle Native motion, then return to VR proxy after gameplay resumes.
+- Check the RPT for `[A3VR] Game context` messages and enable the session-only
+  tracking diagnostic only while collecting a report.
+
+### Image feels too close, blurred, split, or uncomfortable
+
+- Stop playing before further adjustment.
+- Recenter once in normal gameplay, not during a menu or cinematic.
+- Confirm no second A3VR/FOV override or stereo injector is active.
+- Try the `Balanced` profile with Arma closed:
+
+```powershell
+.\scripts\set-a3vr-profile.ps1 -GraphicsPreset Balanced
+```
+
+## Other mods and DLC
+
+Load A3VR, DLC, and other mods together in one official Launcher preset. A3VR
+does not depend on CBA, ACE, SOG Prairie Fire, Spearhead, or a DLC-specific
+starter. Compatibility with a combination is not guaranteed; reproduce binding,
+UI, or weapon issues with A3VR alone before reporting them.
+
+Never enable legacy `@A3VR` and `@A3VR_Hybrid` together.
+
+## Architecture, privacy, and security
+
+- `A3VRRuntime_v31.exe` owns the OpenXR session, tracks the HMD/controllers,
+  submits frames, publishes FreeTrack, and emits local input.
+- `A3VRHybridCore_x64.dll` is loaded by Arma (or preloaded by the local runtime
+  into a process verified as `arma3_x64.exe`), hooks the D3D11 presentation
+  path, captures the backbuffer, and exchanges state through local named shared
+  memory/events.
+- `a3vr_hybrid.pbo` starts the bridge, classifies game/UI context, draws local
+  cursor/markers, and manages the weapon proxy.
+
+A3VR has no telemetry, account login, updater, remote-control service, or
+gameplay network client. The runtime does use behavior that security products
+can consider sensitive: local DLL preloading, a D3D11 hook, local shared memory,
+FreeTrack publication, and local keyboard/mouse input through Windows APIs.
+These are required bridge functions and are documented in
+[`SECURITY.md`](SECURITY.md).
+
+OpenXR SDK, MinHook, and the release PBO packer are fetched from immutable
+upstream object IDs. GitHub Actions used for release are pinned to immutable
+commits. Release ZIPs are accompanied by a SHA-256 file.
 
 ## Build and test
+
+Requirements: Visual Studio 2022 C++ Build Tools and CMake 3.24 or newer.
 
 ```powershell
 .\scripts\build.ps1 -Configuration Release
 ```
 
-The script configures CMake, builds `A3VRHybridCore_x64.dll` and
-`A3VRRuntime_v30.exe`, then runs the automated math and extension smoke tests.
-
-## Package and install
+This builds `A3VRHybridCore_x64.dll`, `A3VRRuntime_v31.exe`, the OpenXR probe,
+and the automated math/extension tests. Local PBO packaging uses Arma 3 Tools:
 
 ```powershell
 .\scripts\package.ps1 -Configuration Release
-.\scripts\install-a3vr.ps1
 ```
 
-The installer creates `@A3VR_Hybrid` beside the game without touching an
-existing `@A3VR` installation. Pass `-GameDirectory` when Arma is outside the
-common Steam locations. The package script accepts a custom Addon Builder path
-through `-AddonBuilder`.
+GitHub tag builds package the same active addon tree with the pinned open-source
+`4d4a5852/a3lib.py` revision.
 
-## Releases
+Automated tests validate native math, input-state behavior, and extension
+startup/version reporting. They do **not** prove headset comfort, every SQF path,
+weapon/DLC compatibility, or live Arma behavior; those require in-game testing.
 
-Tags in the `vMAJOR.MINOR.PATCH` format trigger the release CI/CD. The pipeline
-checks the version declared in `CMakeLists.txt`, builds and tests the runtime,
-packages an installable `@A3VR_Hybrid` with `a3vr_hybrid.pbo`, and publishes a ZIP plus
-its SHA-256 file in the GitHub Release.
-
-The CI PBO uses the pinned open-source `4d4a5852/a3lib.py` packer. Local
-development packaging continues to use the official Addon Builder through
-`scripts/package.ps1`.
-
-For normal use, extract `@A3VR_Hybrid` into the Arma 3 directory, enable
-`A3VR - Arma 3 Hybrid VR` in the official launcher, disable BattlEye, and press
-Play. The addon's `preStart` function loads the native extension before the
-title screen, and the extension starts one `A3VRRuntime_v30.exe` instance
-automatically. No separate script is required.
-
-`START_A3VR.cmd`, `START_A3VR_LAUNCHER.cmd`, and `START_A3VR_SOG.cmd` remain
-available as diagnostic or direct-launch fallbacks. For a custom Steam library,
-pass `-GameDirectory` to `scripts\launch-a3vr.ps1` or set `ARMA3_DIR`.
-
-## Play with other mods
-
-Enable `A3VR - Arma 3 Hybrid VR` together with CBA, ACE, RHS or any other
-desired mods in the official Arma 3 Launcher. The runtime starts automatically
-when Arma loads the A3VR addon. `START_A3VR_LAUNCHER.cmd` can still prestart the
-runtime before opening the official launcher when diagnosing headset or
-FreeTrack enumeration problems.
-
-Do not enable two A3VR variants in the same preset. In particular, leave the
-older `@A3VR` Stable build disabled when using `@A3VR_Hybrid`. Version 1.12.1+
-uses unique DLL, PBO, CfgPatches, CfgFunctions and mission-variable names so
-the official launcher can distinguish both installations, but two VR render
-bridges still cannot safely run inside the same Arma process.
-
-### VR graphics quality
-
-The packaged launcher applies a reversible `Quality` preset by default. It
-captures Arma at 2560x1440, raises shadow quality and distance, improves terrain
-and object detail, and reduces excessive sharpening that can shimmer in a
-headset. The original `Arma3.cfg` and player profile are copied to
-`*.a3vr-pre-vr-quality` before the first change. Run
-`scripts\set-a3vr-profile.ps1 -GraphicsPreset Balanced` for a lighter
-2304x1296 preset on slower GPUs.
-
-For a direct command-line launch, pass a semicolon-separated list:
-
-```powershell
-.\scripts\launch-a3vr.ps1 -AdditionalMods "@CBA_A3;@ace;@RHSUSAF"
-```
-
-Absolute Workshop mod paths are also accepted. A3VR is always placed first in
-the resulting `-mod` list.
-
-## Extension commands
+## Extension diagnostics
 
 ```sqf
 "A3VRHybridCore" callExtension "version";
@@ -284,101 +349,16 @@ private _sample = parseSimpleArray ("A3VRHybridCore" callExtension "pose");
 "A3VRHybridCore" callExtension "probe";
 ```
 
-The `pose` result keeps its existing fields and appends a five-value
-left-finger curl array ordered thumb, index, middle, ring and pinky.
-Controller-derived curls are an approximation; true independent joints
-require optical hand tracking.
+Runtime/SQF diagnostics are written to Arma's normal RPT log. Before posting a
+complete profile or log, remove Windows account names, local paths, server
+addresses, and mod lists you do not want to disclose.
 
-The F7 hand is deliberately a line-art calibration proxy. It verifies the
-wrist position, axes, scale and finger inputs without replacing or moving
-Arma's weapon. The small red, green and blue lines show hand right, forward
-and up respectively. A skinned P3D glove replaces this proxy after calibration.
+## License and attribution
 
-Head rotation defaults to a comfort-oriented `0.42` gain and is limited to 70 degrees
-horizontally and 50 degrees vertically, preventing pole flips and upside-down camera states.
-Advanced users can override the gain by
-setting `A3VR_HEAD_ROTATION_GAIN` between `0.10` and `1.50` before launching.
-Comfort mono is submitted once as a compositor-owned surface shared by both eyes. The
-default profile uses one compositor-owned `10.0 x 5.625` surface at a distance of `2.0`
-during gameplay, shared unchanged by both eyes. This protected comfort-mono path avoids
-per-eye projection warping and binocular view mismatch. In UI context, the compositor
-uses a `3.8`-wide quad while preserving the capture aspect ratio, so
-menus and launch screens fit in view. This camera baseline is intentionally independent
-from weapon and controller experiments. `A3VR_MONO_SCREEN_WIDTH`,
-`A3VR_MONO_SCREEN_HEIGHT`, `A3VR_MONO_SCREEN_DISTANCE`, and `A3VR_UI_SCREEN_WIDTH`
-remain available for deliberate overrides.
+A3VR Hybrid is released under the [Arma Public License Share Alike
+(APL-SA)](LICENSE). See [NOTICE](NOTICE) and
+[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for attribution and
+third-party license details.
 
-The launcher calibrates the active Arma profile to `fovTop=1.2` and
-`fovLeft=2.1333333`, preserving the exact 16:9 relationship used by the 1920x1080
-capture. It creates a one-time `.a3vr-pre-fov` backup beside the profile before changing
-it. Right-controller aim defaults to `420` counts/radian and smooth turn to `300`
-counts/second to avoid the previous over-sensitive movement.
-
-The first-person combat path uses Arma's native soldier weapon and native ViewPilot
-animation. The right controller drives the authoritative soldier aim through Arma input;
-the trigger fires that same weapon. No detached visual weapon is created, so attachments,
-optics, recoil, muzzle effects and projectiles cannot diverge from what the player holds.
-The default `140` mm forward viewpoint offset keeps the native head/neck opening behind
-the near plane while preserving Arma's authoritative ViewPilot hands, weapon, attachments,
-muzzle effects and projectiles. It is disabled automatically inside vehicles and can be
-overridden with `A3VR_BODY_RECESS_MM`.
-
-For large mod sets, A3VR does not require an interaction addon. CBA_A3 + ACE3
-and Zeus Enhanced remain compatible, but their additional actions currently use
-their own keyboard bindings. The experimental controller modifier layer was removed
-because a held or noisy left grip could suppress core locomotion and combat controls.
-
-### FreeTrack missing / Controller menu empty in Arma 3
-
-Arma 3 requires standard Windows registry entries (`NPClient.dll`) to expose FreeTrack in the Controls menu. If you have never used head tracking on your PC, Arma 3 will hide the device by default.
-
-**OpenTrack is NOT required.** To resolve this without installing third-party software:
-
-1. Close Arma 3 and run `START_A3VR_LAUNCHER.cmd` from the mod directory once.
-2. Alternatively, open your `.ARMA3PROFILE` file (`Documents\Arma 3\<ProfileName>.ARMA3PROFILE`) and manually add:
-```cpp
-class freeTrackClass
-{
-    enabled=1;
-    ownSettings=1;
-};
-
-```
-
-## Limitations and safety
-
-- This remains experimental and is not a native Arma 3 VR renderer.
-- Stereo/depth behavior depends on the selected presentation mode and game
-  output; comfort-mono remains the compatibility default.
-- Motion aiming drives Arma's native mouse-look rather than independent
-  weapon bones.
-- Use without BattlEye. Test locally or only on servers that explicitly permit
-  client-side native modifications.
-- Stop immediately if the image causes eye strain, nausea or headache.
-
-The project does not modify Arma network traffic or overwrite base-game files.
-All installed files live inside the A3VR mod directory.
-
-See [ROADMAP.md](ROADMAP.md) for the planned tracked-hand, holster and physical
-inventory work.
-
-## Inspiration
-
-A3VR was inspired in part by an experimental Arma 3 VR demonstration published
-approximately nine years ago:
-
-<https://www.youtube.com/watch?v=I1UzLh-WVVw>
-
-That prototype showed that meaningful headset and motion-controller interaction
-could be explored despite the limitations of Real Virtuality 4. A3VR is a
-separate modern OpenXR implementation, not a continuation of that project.
-
-## License
-
-This project is licensed under the Apache License 2.0. See the `LICENSE` file
-for full terms. A short `NOTICE` file is included in the repository.
-
-Copyright 2026 gborgogno
-
-<img width="1024" height="1536" alt="image" src="https://github.com/user-attachments/assets/7c205a28-1fb3-4a15-9a42-9413dd65b72e" />
-
+The presentation architecture was inspired by the open-source OpenOVR project.
+That project is not bundled and is not required at runtime.

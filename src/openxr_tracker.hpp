@@ -1,6 +1,7 @@
 #pragma once
 
 #include "pose.hpp"
+#include "absolute_weapon_pose.hpp"
 #include "controller_aim_output.hpp"
 #include "controller_input_output.hpp"
 #include "freetrack_output.hpp"
@@ -67,10 +68,10 @@ private:
     bool session_running_{false};
     bool sbs_mode_{false};
     bool mono_mode_{false};
-    float mono_screen_width_{25.4F};
-    float mono_screen_height_{14.3F};
+    float mono_screen_width_{17.5F};
+    float mono_screen_height_{9.84375F};
     float mono_screen_distance_{5.0F};
-    float ui_screen_width_{9.5F};
+    float ui_screen_width_{5.0F};
 
     XrActionSet action_set_{XR_NULL_HANDLE};
     XrAction hand_pose_action_{XR_NULL_HANDLE};
@@ -91,6 +92,7 @@ private:
     XrAction swap_weapon_action_{XR_NULL_HANDLE};
     XrAction vault_action_{XR_NULL_HANDLE};
     XrAction interact_action_{XR_NULL_HANDLE};
+    XrAction haptic_action_{XR_NULL_HANDLE};
     std::array<XrPath, 2> hand_paths_{};
     std::array<XrSpace, 2> hand_spaces_{XR_NULL_HANDLE, XR_NULL_HANDLE};
 
@@ -108,7 +110,16 @@ private:
     FreeTrackOutput freetrack_{};
     ControllerAimOutput controller_aim_{};
     ControllerInputOutput controller_input_{};
-    bool recenter_key_down_{};
+    MotionAimMode motion_aim_mode_{MotionAimMode::legacy_relative};
+    AbsoluteWeaponPoseSolver weapon_pose_solver_{};
+    bool fire_pressed_{};
+    bool aim_pressed_{};
+    bool radial_pressed_{};
+    bool vault_pressed_{};
+    bool roomscale_origin_valid_{};
+    float roomscale_origin_height_{};
+    bool roomscale_crouched_{};
+    std::uint64_t last_haptic_sequence_{};
 };
 
 } // namespace a3vr

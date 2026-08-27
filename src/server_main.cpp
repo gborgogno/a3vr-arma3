@@ -1,9 +1,12 @@
 #include "openxr_tracker.hpp"
 #include "shared_state.hpp"
+#include "game_context.hpp"
 
 #include <chrono>
 #include <cstdlib>
+#include <cwchar>
 #include <filesystem>
+#include <string>
 #include <string_view>
 #include <thread>
 #include <tlhelp32.h>
@@ -26,6 +29,24 @@ DWORD find_arma_process() noexcept {
     }
     CloseHandle(snapshot);
     return result;
+}
+
+bool process_is_arma(const DWORD pid) noexcept {
+    if (pid == 0) return false;
+
+    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (process == nullptr) return false;
+
+    std::wstring image_path(32768, L'\0');
+    DWORD image_path_size = static_cast<DWORD>(image_path.size());
+    const bool queried = QueryFullProcessImageNameW(
+        process, 0, image_path.data(), &image_path_size) != FALSE;
+    CloseHandle(process);
+    if (!queried || image_path_size == 0) return false;
+
+    const wchar_t* filename = std::wcsrchr(image_path.c_str(), L'\\');
+    filename = filename == nullptr ? image_path.c_str() : filename + 1;
+    return _wcsicmp(filename, L"arma3_x64.exe") == 0;
 }
 
 bool module_is_loaded(const DWORD pid, const wchar_t* module_name) noexcept {
@@ -53,6 +74,7 @@ std::filesystem::path extension_path() {
 }
 
 bool preload_extension(const DWORD pid, const std::filesystem::path& path) noexcept {
+    if (!process_is_arma(pid)) return false;
     if (module_is_loaded(pid, L"A3VRHybridCore_x64.dll")) return true;
     if (path.empty() || !std::filesystem::exists(path)) return false;
     HANDLE process = OpenProcess(PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION |
@@ -89,7 +111,7 @@ bool preload_extension(const DWORD pid, const std::filesystem::path& path) noexc
 } // namespace
 
 int main(int argc, char** argv) {
-    HANDLE instance_mutex = CreateMutexA(nullptr, TRUE, "Local\\A3VR_Server_Instance_v30");
+    HANDLE instance_mutex = CreateMutexA(nullptr, TRUE, "Local\\A3VR_Server_Instance_v31");
     if (instance_mutex == nullptr || GetLastError() == ERROR_ALREADY_EXISTS) return 0;
 
     DWORD parent_pid = 0;
@@ -112,6 +134,10 @@ int main(int argc, char** argv) {
 
     a3vr::SharedState shared;
     if (!shared.create()) return 2;
+    // Logo/loading/main menu exist before SQF can classify a display. Keep
+    // that entire startup path on the physical mouse from the first frame.
+    a3vr::set_game_context(
+        a3vr::game_context_ui | a3vr::game_context_mouse_ui);
     auto& tracker = a3vr::OpenXrTracker::instance();
     tracker.start();
 
@@ -134,7 +160,7 @@ int main(int argc, char** argv) {
                 next_preload = now + std::chrono::milliseconds(250);
             }
             a3vr::SharedRenderFrame render{};
-            if (parent == nullptr && shared.read_render(render) && render.source_pid != 0) {
+            if (parent == nullptr && shared.read_render(render) && process_is_arma(render.source_pid)) {
                 parent = OpenProcess(SYNCHRONIZE, FALSE, render.source_pid);
                 if (parent != nullptr) start_parent_watchdog(parent);
             }

@@ -1,0 +1,12 @@
+A3VR Hybrid 1.0.0
+
+- Added experimental stereo gameplay presentation and complete-frame UI.
+- Added config-driven controller-absolute proxy weapons with native ammo,
+  cadence, projectile, damage, sound, reload, and fire validation.
+- Added best-effort cartridge, muzzle, magazine, box, and belt visuals.
+- Added analog locomotion, stance control, footsteps, recoil, and haptics.
+- Replaced conflicting F5-F10 shortcuts with controller chords and an in-game
+  settings panel.
+- Added map/inventory proxy support and mouse-only start/config/Zeus/Eden UI.
+- Unified launcher loading across DLC and mod presets.
+- Added reproducible release packaging, hashes, security policy, and audit.

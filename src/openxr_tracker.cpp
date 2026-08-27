@@ -1,4 +1,5 @@
 #include "openxr_tracker.hpp"
+#include "game_context.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -6,7 +7,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <initializer_list>
+#include <cctype>
 #include <sstream>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -20,10 +23,67 @@ namespace {
 
 bool xr_ok(const XrResult result) noexcept { return XR_SUCCEEDED(result); }
 
-bool system_cursor_is_visible() noexcept {
-    CURSORINFO cursor_info{sizeof(cursor_info)};
-    return GetCursorInfo(&cursor_info) != FALSE &&
-           (cursor_info.flags & CURSOR_SHOWING) != 0;
+bool vr_ui_mode() noexcept {
+    const std::uint32_t context = game_context();
+    return (context & game_context_ui) != 0U &&
+        (context & game_context_gameplay) == 0U;
+}
+
+constexpr std::uint32_t kRoomscaleCrouchButton = 1024U;
+constexpr float kDegreesToRadians = 0.01745329251994329577F;
+
+std::wstring motion_config_path() {
+    wchar_t executable[MAX_PATH]{};
+    const DWORD length = GetModuleFileNameW(
+        nullptr, executable, static_cast<DWORD>(std::size(executable)));
+    if (length == 0 || length >= std::size(executable)) return {};
+    std::wstring result(executable, length);
+    const auto separator = result.find_last_of(L"\\/");
+    if (separator == std::wstring::npos) return {};
+    result.resize(separator + 1);
+    result += L"a3vr-motion.ini";
+    return result;
+}
+
+std::string read_motion_setting(const char* environment_name,
+                                const wchar_t* ini_key,
+                                const std::wstring& ini_path) {
+    char environment_value[64]{};
+    const DWORD environment_size = GetEnvironmentVariableA(
+        environment_name, environment_value,
+        static_cast<DWORD>(std::size(environment_value)));
+    if (environment_size > 0 && environment_size < std::size(environment_value)) {
+        return std::string(environment_value, environment_size);
+    }
+    if (ini_path.empty()) return {};
+    wchar_t ini_value[64]{};
+    const DWORD ini_size = GetPrivateProfileStringW(
+        L"motion", ini_key, L"", ini_value,
+        static_cast<DWORD>(std::size(ini_value)), ini_path.c_str());
+    if (ini_size == 0 || ini_size >= std::size(ini_value)) return {};
+    std::string result;
+    result.reserve(ini_size);
+    for (DWORD index = 0; index < ini_size; ++index) {
+        const wchar_t character = ini_value[index];
+        if (character > 0x7f) return {};
+        result.push_back(static_cast<char>(character));
+    }
+    return result;
+}
+
+float read_motion_float(const char* environment_name,
+                        const wchar_t* ini_key,
+                        const std::wstring& ini_path,
+                        const float fallback,
+                        const float minimum,
+                        const float maximum) {
+    const std::string value = read_motion_setting(
+        environment_name, ini_key, ini_path);
+    if (value.empty()) return fallback;
+    char* end{};
+    const float parsed = std::strtof(value.c_str(), &end);
+    return end != value.c_str() && parsed >= minimum && parsed <= maximum
+        ? parsed : fallback;
 }
 
 TrackedPose convert_pose(const XrSpaceLocation& location) {
@@ -149,13 +209,65 @@ bool OpenXrTracker::initialize() {
         return parsed >= minimum && parsed <= maximum ? parsed : fallback;
     };
     mono_screen_width_ = read_screen_value(
-        "A3VR_MONO_SCREEN_WIDTH", 25.4F, 4.0F, 30.0F);
+        "A3VR_MONO_SCREEN_WIDTH", 17.5F, 3.0F, 20.0F);
     mono_screen_height_ = read_screen_value(
-        "A3VR_MONO_SCREEN_HEIGHT", 14.3F, 2.0F, 20.0F);
+        "A3VR_MONO_SCREEN_HEIGHT", 9.84375F, 2.0F, 12.0F);
     mono_screen_distance_ = read_screen_value(
-        "A3VR_MONO_SCREEN_DISTANCE", 5.0F, 2.0F, 20.0F);
+        "A3VR_MONO_SCREEN_DISTANCE", 5.0F, 1.0F, 10.0F);
     ui_screen_width_ = read_screen_value(
-        "A3VR_UI_SCREEN_WIDTH", 9.5F, 4.0F, 20.0F);
+        "A3VR_UI_SCREEN_WIDTH", 5.0F, 2.0F, 10.0F);
+
+    const std::wstring motion_ini = motion_config_path();
+    std::string motion_mode = read_motion_setting(
+        "A3VR_MOTION_AIM_MODE", L"mode", motion_ini);
+    std::ranges::transform(motion_mode, motion_mode.begin(),
+        [](const unsigned char character) {
+            return static_cast<char>(std::tolower(character));
+        });
+    motion_aim_mode_ = motion_mode == "absolute" ||
+                       motion_mode == "absoluteweapon"
+        ? MotionAimMode::absolute_weapon
+        : MotionAimMode::legacy_relative;
+    controller_aim_.configure_absolute_servo(
+        read_motion_float("A3VR_CONTROLLER_SERVO_COUNTS_PER_RADIAN",
+                          L"servo_counts_per_radian", motion_ini,
+                          2100.0F, 100.0F, 5000.0F),
+        read_motion_float("A3VR_CONTROLLER_SERVO_GAIN",
+                          L"servo_gain", motion_ini,
+                          0.42F, 0.05F, 1.0F),
+        read_motion_float("A3VR_CONTROLLER_SERVO_MAX_COUNTS",
+                          L"servo_max_counts", motion_ini,
+                          160.0F, 20.0F, 500.0F));
+
+    WeaponGripCalibration grip_calibration{};
+    grip_calibration.position_offset = {
+        read_motion_float("A3VR_WEAPON_GRIP_X", L"grip_x", motion_ini,
+                          0.0F, -1.0F, 1.0F),
+        read_motion_float("A3VR_WEAPON_GRIP_Y", L"grip_y", motion_ini,
+                          0.0F, -1.0F, 1.0F),
+        read_motion_float("A3VR_WEAPON_GRIP_Z", L"grip_z", motion_ini,
+                          0.0F, -1.0F, 1.0F),
+    };
+    const float grip_yaw = read_motion_float(
+        "A3VR_WEAPON_GRIP_YAW_DEG", L"grip_yaw_deg", motion_ini,
+        0.0F, -180.0F, 180.0F) * kDegreesToRadians;
+    const float grip_pitch = read_motion_float(
+        "A3VR_WEAPON_GRIP_PITCH_DEG", L"grip_pitch_deg", motion_ini,
+        0.0F, -180.0F, 180.0F) * kDegreesToRadians;
+    const float grip_roll = read_motion_float(
+        "A3VR_WEAPON_GRIP_ROLL_DEG", L"grip_roll_deg", motion_ini,
+        0.0F, -180.0F, 180.0F) * kDegreesToRadians;
+    grip_calibration.rotation_offset = quaternion_from_yaw_pitch_roll(
+        grip_yaw, grip_pitch, grip_roll);
+    weapon_pose_solver_.set_calibration(grip_calibration);
+    weapon_pose_solver_.set_muzzle_offset({
+        read_motion_float("A3VR_WEAPON_MUZZLE_X", L"muzzle_x", motion_ini,
+                          0.0F, -2.0F, 2.0F),
+        read_motion_float("A3VR_WEAPON_MUZZLE_Y", L"muzzle_y", motion_ini,
+                          0.0F, -2.0F, 2.0F),
+        read_motion_float("A3VR_WEAPON_MUZZLE_Z", L"muzzle_z", motion_ini,
+                          -0.55F, -2.0F, 2.0F),
+    });
     (void)freetrack_.open();
     set_status("initializing: enumerate extensions");
     std::uint32_t extension_count = 0;
@@ -184,11 +296,15 @@ bool OpenXrTracker::initialize() {
     instance_info.applicationInfo.applicationVersion = 1;
     strcpy_s(instance_info.applicationInfo.engineName, "Real Virtuality 4");
     instance_info.applicationInfo.engineVersion = 1;
-    instance_info.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
+    // SteamVR on some Meta Link installations still advertises OpenXR 1.0.
+    // A3VR only uses 1.0 core commands, so request the compatible API level.
+    instance_info.applicationInfo.apiVersion = XR_API_VERSION_1_0;
     instance_info.enabledExtensionCount = 1;
     instance_info.enabledExtensionNames = enabled_extensions;
-    if (!xr_ok(xrCreateInstance(&instance_info, &instance_))) {
-        set_error("xrCreateInstance failed; verify the active OpenXR runtime");
+    const XrResult create_instance_result = xrCreateInstance(&instance_info, &instance_);
+    if (!xr_ok(create_instance_result)) {
+        set_error("xrCreateInstance failed (" +
+                  std::to_string(static_cast<std::int32_t>(create_instance_result)) + ")");
         return false;
     }
 
@@ -347,7 +463,9 @@ bool OpenXrTracker::create_actions() {
         !create_action(XR_ACTION_TYPE_BOOLEAN_INPUT, "vault", "Vault or step over",
                        &hand_paths_[1], 1, vault_action_) ||
         !create_action(XR_ACTION_TYPE_BOOLEAN_INPUT, "interact", "Interact",
-                       &hand_paths_[0], 1, interact_action_)) {
+                       &hand_paths_[0], 1, interact_action_) ||
+        !create_action(XR_ACTION_TYPE_VIBRATION_OUTPUT, "haptic", "Controller haptics",
+                       hand_paths_.data(), 2, haptic_action_)) {
         set_error("cannot create controller actions");
         return false;
     }
@@ -375,6 +493,8 @@ bool OpenXrTracker::create_actions() {
     suggest_profile("/interaction_profiles/khr/simple_controller", {
         {hand_pose_action_, "/user/hand/left/input/aim/pose"},
         {hand_pose_action_, "/user/hand/right/input/aim/pose"},
+        {haptic_action_, "/user/hand/left/output/haptic"},
+        {haptic_action_, "/user/hand/right/output/haptic"},
     });
     suggest_profile("/interaction_profiles/oculus/touch_controller", {
         {hand_pose_action_, "/user/hand/left/input/aim/pose"},
@@ -396,6 +516,8 @@ bool OpenXrTracker::create_actions() {
         {swap_weapon_action_, "/user/hand/left/input/y/click"},
         {vault_action_, "/user/hand/right/input/b/click"},
         {interact_action_, "/user/hand/left/input/x/click"},
+        {haptic_action_, "/user/hand/left/output/haptic"},
+        {haptic_action_, "/user/hand/right/output/haptic"},
     });
     suggest_profile("/interaction_profiles/valve/index_controller", {
         {hand_pose_action_, "/user/hand/left/input/aim/pose"},
@@ -417,6 +539,8 @@ bool OpenXrTracker::create_actions() {
         {swap_weapon_action_, "/user/hand/left/input/b/click"},
         {vault_action_, "/user/hand/right/input/b/click"},
         {interact_action_, "/user/hand/left/input/a/click"},
+        {haptic_action_, "/user/hand/left/output/haptic"},
+        {haptic_action_, "/user/hand/right/output/haptic"},
     });
     suggest_profile("/interaction_profiles/microsoft/motion_controller", {
         {hand_pose_action_, "/user/hand/left/input/aim/pose"},
@@ -433,6 +557,8 @@ bool OpenXrTracker::create_actions() {
         {reload_action_, "/user/hand/right/input/menu/click"},
         {fire_mode_action_, "/user/hand/right/input/thumbstick/click"},
         {interact_action_, "/user/hand/left/input/menu/click"},
+        {haptic_action_, "/user/hand/left/output/haptic"},
+        {haptic_action_, "/user/hand/right/output/haptic"},
     });
 
     for (std::size_t index = 0; index < hand_spaces_.size(); ++index) {
@@ -486,7 +612,10 @@ bool OpenXrTracker::create_render_swapchains(const SharedRenderFrame& frame) {
                           XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT;
         info.format = format;
         info.sampleCount = 1;
-        info.width = sbs_mode_ ? frame.width / 2 : frame.width;
+        // SBS gameplay uses the left half of each image. Keep the swapchains
+        // full-width so UI contexts can copy and present the complete Arma
+        // backbuffer as one binocular menu surface without recreating them.
+        info.width = frame.width;
         info.height = frame.height;
         info.faceCount = 1;
         info.arraySize = 1;
@@ -589,16 +718,46 @@ void OpenXrTracker::run_frame() {
     next.session_running = session_running_;
 
     bool recenter_requested = false;
+    const bool menu_recenter_requested = consume_recenter_request();
+    const float body_yaw_transfer_degrees = consume_body_yaw_transfer();
     XrSpaceLocation head_location{XR_TYPE_SPACE_LOCATION};
     if (xr_ok(xrLocateSpace(view_space_, local_space_, frame_state.predictedDisplayTime, &head_location))) {
         next.head = convert_pose(head_location);
-        const bool recenter_key_down = (GetAsyncKeyState(VK_F8) & 0x8000) != 0;
-        if (recenter_key_down && !recenter_key_down_) {
+        if (menu_recenter_requested) {
             freetrack_.recenter();
             recenter_requested = true;
         }
-        recenter_key_down_ = recenter_key_down;
+        if (std::abs(body_yaw_transfer_degrees) > 0.0001F) {
+            constexpr float degrees_to_radians =
+                3.14159265358979323846F / 180.0F;
+            freetrack_.transfer_body_yaw(
+                body_yaw_transfer_degrees * degrees_to_radians);
+        }
         freetrack_.publish(next.head);
+    }
+
+    if (recenter_requested) {
+        roomscale_origin_valid_ = false;
+        roomscale_crouched_ = false;
+        weapon_pose_solver_.clear_player_origin();
+    }
+    if (next.head.position_valid) {
+        if (!roomscale_origin_valid_) {
+            roomscale_origin_height_ = next.head.position.y;
+            roomscale_origin_valid_ = true;
+        } else {
+            // Treat the highest relaxed head position since recenter as the
+            // standing reference. Hysteresis prevents stance chatter when the
+            // user naturally bobs near the crouch threshold.
+            if (!roomscale_crouched_ &&
+                next.head.position.y > roomscale_origin_height_) {
+                roomscale_origin_height_ = next.head.position.y;
+            }
+            const float height_drop =
+                roomscale_origin_height_ - next.head.position.y;
+            roomscale_crouched_ = roomscale_crouch_state(
+                height_drop, roomscale_crouched_);
+        }
     }
 
     ControllerInputState controller_input{};
@@ -672,24 +831,47 @@ void OpenXrTracker::run_frame() {
         if (std::abs(right_component_y) > std::abs(right_y)) right_y = right_component_y;
         controller_input.turn_x = right_x;
         controller_input.turn_y = right_y;
-        controller_input.fire = read_float(fire_action_, hand_paths_[1]) >= 0.55F;
-        controller_input.aim = read_float(aim_action_, hand_paths_[1]) >= 0.55F;
-        controller_input.sprint = read_boolean(sprint_action_, hand_paths_[0]) ||
+        controller_input.fire = analog_button_pressed(
+            read_float(fire_action_, hand_paths_[1]), fire_pressed_, 0.22F, 0.12F);
+        fire_pressed_ = controller_input.fire;
+        controller_input.aim = analog_button_pressed(
+            read_float(aim_action_, hand_paths_[1]), aim_pressed_, 0.38F, 0.24F);
+        aim_pressed_ = controller_input.aim;
+        controller_input.sprint_click = read_boolean(sprint_action_, hand_paths_[0]);
+        controller_input.sprint = controller_input.sprint_click ||
             std::hypot(controller_input.move_x, controller_input.move_y) >= 0.85F;
         controller_input.reload = read_boolean(reload_action_, hand_paths_[1]);
         controller_input.fire_mode = read_boolean(fire_mode_action_, hand_paths_[1]);
         controller_input.swap_weapon = read_boolean(swap_weapon_action_, hand_paths_[0]);
-        controller_input.vault = read_boolean(vault_action_, hand_paths_[1]);
         controller_input.interact = read_boolean(interact_action_, hand_paths_[0]);
         const float left_index = std::clamp(
             read_float(left_trigger_action_, hand_paths_[0]), 0.0F, 1.0F);
+        // Use every physical control without a pause binding: left trigger is
+        // vault/step-over and right B is grenade.
+        controller_input.vault = analog_button_pressed(
+            left_index, vault_pressed_, 0.78F, 0.45F);
+        vault_pressed_ = controller_input.vault;
+        controller_input.grenade = read_boolean(vault_action_, hand_paths_[1]);
         const float left_grip = std::clamp(
             read_float(left_squeeze_action_, hand_paths_[0]), 0.0F, 1.0F);
+        controller_input.radial_menu = analog_button_pressed(
+            left_grip, radial_pressed_, 0.55F, 0.35F);
+        radial_pressed_ = controller_input.radial_menu;
         const float left_thumb = read_boolean(
             left_thumb_touch_action_, hand_paths_[0]) ? 1.0F : 0.0F;
         next.left_finger_curls = {
             left_thumb, left_index, left_grip, left_grip, left_grip};
     }
+    const std::uint32_t context = game_context();
+    const bool input_ui_mode = vr_ui_mode();
+    const bool mouse_ui_mode = input_ui_mode &&
+        (context & game_context_mouse_ui) != 0U;
+    const bool aim_ui_mode = input_ui_mode && !mouse_ui_mode;
+    const bool vehicle_mode = (context & game_context_vehicle) != 0U;
+    const bool proxy_mode = (context & game_option_proxy_active) != 0U;
+    const TrackedPose& aim_controller =
+        (context & game_option_aim_left) != 0U
+        ? next.left_hand : next.right_hand;
     next.controller_move_x = controller_input.move_x;
     next.controller_move_y = controller_input.move_y;
     next.controller_turn_x = controller_input.turn_x;
@@ -702,10 +884,47 @@ void OpenXrTracker::run_frame() {
         (controller_input.fire_mode ? 16U : 0U) |
         (controller_input.swap_weapon ? 32U : 0U) |
         (controller_input.interact ? 64U : 0U) |
-        (controller_input.vault ? 128U : 0U);
-    controller_aim_.update(next.right_hand, next.head, active_render_frame_.source_pid,
-                           recenter_requested);
+        (controller_input.vault ? 128U : 0U) |
+        (controller_input.grenade ? 256U : 0U) |
+        (controller_input.radial_menu ? 512U : 0U) |
+        (roomscale_crouched_ ? kRoomscaleCrouchButton : 0U);
+    next.motion_aim_mode = motion_aim_mode_;
+    next.weapon_target = weapon_pose_solver_.solve(next.right_hand, next.head);
+    AimFeedback aim_feedback{};
+    (void)render_state_.read_aim_feedback(aim_feedback);
+    const bool absolute_servo =
+        motion_aim_mode_ == MotionAimMode::absolute_weapon &&
+        !input_ui_mode && !vehicle_mode;
+    if (!proxy_mode && !mouse_ui_mode) {
+        controller_aim_.update(
+            aim_controller, next.head, active_render_frame_.source_pid,
+            recenter_requested, aim_ui_mode, absolute_servo, aim_feedback,
+            std::abs(controller_input.turn_x) > 0.20F);
+    } else if (recenter_requested || mouse_ui_mode) {
+        controller_aim_.recenter();
+    }
     controller_input_.update(controller_input, active_render_frame_.source_pid);
+
+    HapticRequest haptic{};
+    if (render_state_.read_haptic(haptic) &&
+        haptic.sequence > last_haptic_sequence_) {
+        last_haptic_sequence_ = haptic.sequence;
+        XrHapticVibration vibration{XR_TYPE_HAPTIC_VIBRATION};
+        vibration.amplitude = std::clamp(haptic.amplitude, 0.0F, 1.0F);
+        vibration.frequency = haptic.frequency > 0.0F
+            ? haptic.frequency : XR_FREQUENCY_UNSPECIFIED;
+        vibration.duration = static_cast<XrDuration>(haptic.duration_ms) *
+            1'000'000;
+        for (std::size_t index = 0; index < hand_paths_.size(); ++index) {
+            if ((haptic.hand_mask & (1U << index)) == 0U) continue;
+            XrHapticActionInfo info{XR_TYPE_HAPTIC_ACTION_INFO};
+            info.action = haptic_action_;
+            info.subactionPath = hand_paths_[index];
+            (void)xrApplyHapticFeedback(
+                session_, &info,
+                reinterpret_cast<const XrHapticBaseHeader*>(&vibration));
+        }
+    }
 
     XrViewLocateInfo view_info{XR_TYPE_VIEW_LOCATE_INFO};
     view_info.viewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
@@ -723,9 +942,10 @@ void OpenXrTracker::run_frame() {
         }
     }
 
-    // Arma already rotates/translates its camera from the FreeTrack sample.
-    // Submit the finished image in head-relative view space so the compositor
-    // does not interpret that same motion a second time as a world-space view.
+    // Arma has already rendered the latest FreeTrack head rotation into both
+    // RTT images. Keep the submitted stereo pair in view space so OpenXR does
+    // not apply a second, newer head pose to an older Arma frame; that temporal
+    // mismatch makes the eyes diverge during turns and prevents fusion.
     XrViewLocateInfo layer_view_info = view_info;
     layer_view_info.space = view_space_;
     XrViewState layer_view_state{XR_TYPE_VIEW_STATE};
@@ -749,8 +969,14 @@ void OpenXrTracker::run_frame() {
             std::abs(layer_views[0].fov.angleDown) +
             std::abs(layer_views[1].fov.angleUp) +
             std::abs(layer_views[1].fov.angleDown));
-        common_layer_fov = {-horizontal_half_angle, horizontal_half_angle,
-                            vertical_half_angle, -vertical_half_angle};
+        // Each Arma source is a square symmetric RTT. Advertising the
+        // headset's asymmetric horizontal/vertical angles for that square
+        // image changes scale across axes and feels like a fisheye on turns.
+        // Use the same inscribed symmetric FOV selected by fn_stereoLoop.sqf.
+        const float square_half_angle = (std::min)(
+            horizontal_half_angle, vertical_half_angle);
+        common_layer_fov = {-square_half_angle, square_half_angle,
+                            square_half_angle, -square_half_angle};
     }
 
     {
@@ -766,14 +992,17 @@ void OpenXrTracker::run_frame() {
     XrCompositionLayerQuad mono_quad{XR_TYPE_COMPOSITION_LAYER_QUAD};
     const XrCompositionLayerBaseHeader* submitted_layer = nullptr;
     bool submitted = false;
+    const bool ui_mode = vr_ui_mode();
+    const bool sbs_ui_mode = sbs_mode_ && ui_mode;
     const bool has_render_source = (sbs_mode_ || mono_mode_) && frame_state.shouldRender &&
-        (!sbs_mode_ || layer_views_valid) &&
+        (!sbs_mode_ || sbs_ui_mode || layer_views_valid) &&
         update_shared_render_source() && game_texture_;
     const bool acquired = has_render_source && (!game_texture_mutex_ ||
-        game_texture_mutex_->AcquireSync(1, 0) == S_OK);
+        game_texture_mutex_->AcquireSync(1, 2) == S_OK);
     if (acquired) {
         bool copied_all = true;
-        const std::size_t target_count = mono_mode_ ? 1U : eye_swapchains_.size();
+        const std::size_t target_count = (mono_mode_ || sbs_ui_mode)
+            ? 1U : eye_swapchains_.size();
         for (std::size_t index = 0; index < target_count; ++index) {
             auto& eye = eye_swapchains_[index];
             std::uint32_t image_index{};
@@ -790,10 +1019,11 @@ void OpenXrTracker::run_frame() {
                 copied_all = false;
                 break;
             }
-            const std::uint32_t eye_width = mono_mode_
+            const bool copy_full_frame = mono_mode_ || sbs_ui_mode;
+            const std::uint32_t eye_width = copy_full_frame
                 ? active_render_frame_.width
                 : active_render_frame_.width / 2;
-            const std::uint32_t source_left = mono_mode_ ? 0U :
+            const std::uint32_t source_left = copy_full_frame ? 0U :
                 static_cast<std::uint32_t>(index) * eye_width;
             const D3D11_BOX source_box{
                 static_cast<UINT>(source_left), 0, 0,
@@ -804,11 +1034,10 @@ void OpenXrTracker::run_frame() {
                                                 &source_box);
             XrSwapchainImageReleaseInfo release{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
             (void)xrReleaseSwapchainImage(eye.handle, &release);
-            if (!mono_mode_) {
+            if (!mono_mode_ && !sbs_ui_mode) {
                 auto& projection_view = projection_views[index];
                 projection_view.pose.orientation = {0.0F, 0.0F, 0.0F, 1.0F};
-                projection_view.pose.position = {
-                    layer_views[index].pose.position.x, 0.0F, 0.0F};
+                projection_view.pose.position = layer_views[index].pose.position;
                 projection_view.fov = common_layer_fov;
                 projection_view.subImage.swapchain = eye.handle;
                 projection_view.subImage.imageRect.offset = {0, 0};
@@ -820,22 +1049,31 @@ void OpenXrTracker::run_frame() {
         }
         if (game_texture_mutex_) game_texture_mutex_->ReleaseSync(0);
         if (copied_all) {
-            if (mono_mode_) {
-                // One compositor-owned surface is shared by both eyes. Gameplay
-                // keeps the exact protected-v9 comfort geometry. Arma exposes an
-                // OS cursor in menus, so that state gets a narrower 16:9 surface
-                // which fits the complete UI inside the headset field of view.
-                mono_quad.space = view_space_;
-                mono_quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
-                mono_quad.pose.orientation = {0.0F, 0.0F, 0.0F, 1.0F};
-                mono_quad.pose.position = {0.0F, 0.0F, -mono_screen_distance_};
-                const bool ui_mode = system_cursor_is_visible();
+            if (mono_mode_ || sbs_ui_mode) {
                 const float capture_aspect = active_render_frame_.height > 0
                     ? static_cast<float>(active_render_frame_.width) /
                           static_cast<float>(active_render_frame_.height)
                     : mono_screen_width_ / mono_screen_height_;
+                // Restore the protected comfort-mono camera: one compositor-owned
+                // surface, identical for both eyes. Projection mode was rejected
+                // because per-eye optical warping made the views feel scrambled.
+                mono_quad.space = view_space_;
+                mono_quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+                mono_quad.pose.orientation = {0.0F, 0.0F, 0.0F, 1.0F};
+                mono_quad.pose.position = {0.0F, 0.0F, -mono_screen_distance_};
+                // Submit exactly one surface.  Menus use the smaller complete
+                // frame so every control is reachable; gameplay uses the wide
+                // comfort surface.  Layering both copies causes an obvious
+                // double image whenever their edges/content overlap.
+                // UI, campaign cameras, Eden and Zeus must fit completely in
+                // the headset. This surface is intentionally smaller than the
+                // gameplay surface; the black surround is confined to UI mode.
+                const float ui_width =
+                    (game_context() & game_option_ui_large) != 0U
+                    ? (std::min)(ui_screen_width_ * 1.15F, 10.0F)
+                    : ui_screen_width_;
                 mono_quad.size = ui_mode
-                    ? XrExtent2Df{ui_screen_width_, ui_screen_width_ / capture_aspect}
+                    ? XrExtent2Df{ui_width, ui_width / capture_aspect}
                     : XrExtent2Df{mono_screen_width_, mono_screen_height_};
                 mono_quad.subImage.swapchain = eye_swapchains_[0].handle;
                 mono_quad.subImage.imageRect.offset = {0, 0};
@@ -884,7 +1122,7 @@ void OpenXrTracker::shutdown() {
         move_y_action_, right_move_action_, right_move_x_action_,
         right_move_y_action_, sprint_action_,
         reload_action_, fire_mode_action_, swap_weapon_action_, interact_action_,
-        vault_action_,
+        vault_action_, haptic_action_,
     };
     for (const XrAction action : actions) {
         if (action != XR_NULL_HANDLE) xrDestroyAction(action);
@@ -900,13 +1138,17 @@ void OpenXrTracker::shutdown() {
     right_move_action_ = right_move_x_action_ = right_move_y_action_ = XR_NULL_HANDLE;
     sprint_action_ = reload_action_ = fire_mode_action_ = XR_NULL_HANDLE;
     swap_weapon_action_ = interact_action_ = XR_NULL_HANDLE;
-    vault_action_ = XR_NULL_HANDLE;
+    vault_action_ = haptic_action_ = XR_NULL_HANDLE;
+    last_haptic_sequence_ = 0;
     action_set_ = XR_NULL_HANDLE;
     session_ = XR_NULL_HANDLE;
     instance_ = XR_NULL_HANDLE;
     d3d_context_.Reset();
     d3d_device_.Reset();
     freetrack_.close();
+    roomscale_origin_valid_ = false;
+    roomscale_origin_height_ = 0.0F;
+    roomscale_crouched_ = false;
 }
 
 } // namespace a3vr

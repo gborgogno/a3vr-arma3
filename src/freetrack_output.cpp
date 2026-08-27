@@ -1,4 +1,5 @@
 #include "freetrack_output.hpp"
+#include "game_context.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -10,8 +11,8 @@ namespace a3vr {
 namespace {
 
 constexpr float kTranslationGain = 0.25F;
-constexpr float kMaximumYaw = 1.74532925F;   // 100 degrees
-constexpr float kMaximumPitch = 1.39626340F; // 80 degrees
+constexpr float kMaximumYaw = 1.22173048F;   // 70 degrees
+constexpr float kMaximumPitch = 0.87266463F; // 50 degrees
 constexpr float kMaximumTranslationMm = 100.0F;
 constexpr float kMaximumRecessedTranslationMm = 450.0F;
 
@@ -57,6 +58,15 @@ Quat multiply(const Quat a, const Quat b) noexcept {
     };
 }
 
+Quat normalized_quaternion(const Quat value) noexcept {
+    const float length = std::sqrt(
+        value.x * value.x + value.y * value.y + value.z * value.z +
+        value.w * value.w);
+    if (!std::isfinite(length) || length < 0.00001F) return {};
+    return {value.x / length, value.y / length, value.z / length,
+            value.w / length};
+}
+
 TrackedPose relative_to(const TrackedPose& pose, const TrackedPose& origin) noexcept {
     const Quat inverse_origin = conjugate(origin.orientation);
     const Vec3 delta{pose.position.x - origin.position.x,
@@ -81,8 +91,19 @@ static_assert(sizeof(FreeTrackData) == 92);
 FreeTrackPose to_freetrack_pose(
     const TrackedPose& pose, const float rotation_gain) noexcept {
     const Vec3 forward = normalized(rotate(pose.orientation, {0.0F, 0.0F, -1.0F}));
-    const float pitch = std::asin(std::clamp(forward.y, -1.0F, 1.0F));
-    const float yaw = std::atan2(-forward.x, -forward.z);
+    // Extract yaw from the quaternion's world-up twist instead of from the
+    // projected forward vector. Looking past straight up otherwise makes the
+    // forward vector cross the pole and injects an instantaneous 180-degree
+    // yaw flip. Pitch uses a bounded elevation, so the camera cannot invert.
+    const float canonical_sign = pose.orientation.w < 0.0F ? -1.0F : 1.0F;
+    const float twist_w = pose.orientation.w * canonical_sign;
+    const float twist_y = pose.orientation.y * canonical_sign;
+    const float twist_length = std::hypot(twist_w, twist_y);
+    const float yaw = twist_length > 0.00001F
+        ? 2.0F * std::atan2(twist_y / twist_length, twist_w / twist_length)
+        : 0.0F;
+    const float pitch = std::atan2(
+        forward.y, std::hypot(forward.x, forward.z));
 
     // Arma's FreeTrack camera consumes lateral translation with the opposite
     // sign to OpenXR: moving the headset right must move the in-game viewpoint
@@ -164,6 +185,21 @@ void FreeTrackOutput::recenter() noexcept {
     origin_ = {};
 }
 
+void FreeTrackOutput::transfer_body_yaw(
+    const float arma_yaw_radians) noexcept {
+    if (!origin_valid_ || !std::isfinite(arma_yaw_radians)) return;
+    // Arma headings increase clockwise, while OpenXR positive yaw is
+    // counter-clockwise. FreeTrack rotation is gain-scaled, so transfer the
+    // inverse, unscaled amount into the origin to keep the world view stable
+    // while the native body turns underneath it.
+    const float openxr_yaw = -arma_yaw_radians /
+        (std::max)(rotation_gain_, 0.01F);
+    const float half = openxr_yaw * 0.5F;
+    const Quat yaw_rotation{0.0F, std::sin(half), 0.0F, std::cos(half)};
+    origin_.orientation = normalized_quaternion(
+        multiply(origin_.orientation, yaw_rotation));
+}
+
 void FreeTrackOutput::publish(const TrackedPose& pose) {
     if (data_ == nullptr || !pose.position_valid || !pose.orientation_valid) return;
     if (WaitForSingleObject(mutex_, 2) != WAIT_OBJECT_0) return;
@@ -172,9 +208,10 @@ void FreeTrackOutput::publish(const TrackedPose& pose) {
         origin_ = pose;
         origin_valid_ = true;
     }
+    const bool in_vehicle = (game_context() & game_context_vehicle) != 0U;
     const FreeTrackPose converted = apply_body_recess(
         to_freetrack_pose(relative_to(pose, origin_), rotation_gain_),
-        body_recess_mm_);
+        in_vehicle ? 0.0F : body_recess_mm_);
     auto& output = data_->data;
     output.yaw = output.raw_yaw = converted.yaw;
     output.pitch = output.raw_pitch = converted.pitch;

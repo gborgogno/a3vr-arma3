@@ -1,13 +1,17 @@
 #include "d3d11_capture.hpp"
 
+#include "game_context.hpp"
 #include "shared_state.hpp"
 
 #include <MinHook.h>
 #include <d3d11.h>
+#include <d3d11_1.h>
 #include <dxgi1_2.h>
 #include <wrl/client.h>
 
+#include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstdint>
 #include <mutex>
 #include <string>
@@ -27,6 +31,7 @@ std::atomic<std::uint64_t> next_generation{1};
 std::string install_status{"not started"};
 std::mutex resource_mutex;
 ComPtr<ID3D11Texture2D> shared_texture;
+ComPtr<ID3D11RenderTargetView> cursor_render_target;
 ComPtr<ID3D11Texture2D> owner_texture;
 ComPtr<ID3D11Device> owner_device;
 ComPtr<IDXGIKeyedMutex> keyed_mutex;
@@ -39,6 +44,7 @@ ULONGLONG last_selected_present_tick{};
 
 void release_shared_texture_locked() {
     keyed_mutex.Reset();
+    cursor_render_target.Reset();
     shared_texture.Reset();
     owner_texture.Reset();
     owner_device.Reset();
@@ -60,6 +66,81 @@ bool belongs_to_game_window(IDXGISwapChain* swapchain) noexcept {
     DWORD window_pid{};
     GetWindowThreadProcessId(desc.OutputWindow, &window_pid);
     return window_pid == GetCurrentProcessId();
+}
+
+void draw_ui_cursor(ID3D11DeviceContext* context,
+                    IDXGISwapChain* swapchain) noexcept {
+    const std::uint32_t game_flags = game_context();
+    const bool ui_mode = (game_flags & game_context_ui) != 0U &&
+        (game_flags & game_context_gameplay) == 0U;
+    if (!ui_mode || context == nullptr || swapchain == nullptr ||
+        !cursor_render_target || render_frame.width == 0 ||
+        render_frame.height == 0) return;
+
+    ComPtr<ID3D11DeviceContext1> context1;
+    if (FAILED(context->QueryInterface(IID_PPV_ARGS(&context1)))) return;
+    DXGI_SWAP_CHAIN_DESC swapchain_desc{};
+    if (FAILED(swapchain->GetDesc(&swapchain_desc)) ||
+        swapchain_desc.OutputWindow == nullptr) return;
+    RECT client{};
+    POINT cursor{};
+    if (!GetClientRect(swapchain_desc.OutputWindow, &client) ||
+        !GetCursorPos(&cursor) ||
+        !ScreenToClient(swapchain_desc.OutputWindow, &cursor)) return;
+    const int client_width = (std::max)(1L, client.right - client.left);
+    const int client_height = (std::max)(1L, client.bottom - client.top);
+    if (cursor.x < 0 || cursor.y < 0 || cursor.x >= client_width ||
+        cursor.y >= client_height) return;
+
+    const int texture_width = static_cast<int>(render_frame.width);
+    const int texture_height = static_cast<int>(render_frame.height);
+    const int cursor_x = std::clamp(
+        static_cast<int>((static_cast<std::int64_t>(cursor.x) *
+            texture_width) / client_width), 0, texture_width - 1);
+    const int cursor_y = std::clamp(
+        static_cast<int>((static_cast<std::int64_t>(cursor.y) *
+            texture_height) / client_height), 0, texture_height - 1);
+    const float shadow[4]{0.0F, 0.0F, 0.0F, 0.96F};
+    const float cursor_color[4]{1.0F, 1.0F, 1.0F, 1.0F};
+    const float guide_color[4]{0.05F, 0.72F, 1.0F, 0.92F};
+    const auto clear_rectangle = [&](int left, int top, int right, int bottom,
+                                     const float (&color)[4]) {
+        left = std::clamp(left, 0, texture_width);
+        right = std::clamp(right, 0, texture_width);
+        top = std::clamp(top, 0, texture_height);
+        bottom = std::clamp(bottom, 0, texture_height);
+        if (left >= right || top >= bottom) return;
+        const D3D11_RECT rectangle{left, top, right, bottom};
+        context1->ClearView(
+            cursor_render_target.Get(), color, &rectangle, 1);
+    };
+
+    // Capture-safe dotted ray: physical mouse remains the only input owner,
+    // while the headset receives a visible path to its otherwise hardware-only
+    // cursor. Draw this on the shared texture, never on Arma's backbuffer.
+    const int anchor_x = texture_width / 2;
+    const int anchor_y = texture_height - 2;
+    for (int index = 1; index <= 12; ++index) {
+        const float t = static_cast<float>(index) / 13.0F;
+        const int x = static_cast<int>(std::lround(
+            anchor_x + (cursor_x - anchor_x) * t));
+        const int y = static_cast<int>(std::lround(
+            anchor_y + (cursor_y - anchor_y) * t));
+        clear_rectangle(x - 3, y - 3, x + 4, y + 4, shadow);
+        clear_rectangle(x - 1, y - 1, x + 2, y + 2, guide_color);
+    }
+
+    // Outlined cross remains legible over bright sky and dark configuration
+    // panels without relying on the Windows cursor, which is absent from the
+    // D3D11 backbuffer captured for OpenXR.
+    clear_rectangle(cursor_x - 12, cursor_y - 3,
+                    cursor_x + 13, cursor_y + 4, shadow);
+    clear_rectangle(cursor_x - 3, cursor_y - 12,
+                    cursor_x + 4, cursor_y + 13, shadow);
+    clear_rectangle(cursor_x - 10, cursor_y - 1,
+                    cursor_x + 11, cursor_y + 2, cursor_color);
+    clear_rectangle(cursor_x - 1, cursor_y - 10,
+                    cursor_x + 2, cursor_y + 11, cursor_color);
 }
 
 bool create_shared_texture(IDXGISwapChain* swapchain, ID3D11Texture2D* backbuffer) {
@@ -135,6 +216,9 @@ bool create_shared_texture(IDXGISwapChain* swapchain, ID3D11Texture2D* backbuffe
     }
     keyed_mutex.Reset();
     shared_texture = std::move(texture);
+    cursor_render_target.Reset();
+    (void)device->CreateRenderTargetView(
+        shared_texture.Get(), nullptr, &cursor_render_target);
     shared_handle = handle;
     captured_swapchain = swapchain;
     render_frame.generation = next_generation.fetch_add(1);
@@ -192,6 +276,7 @@ HRESULT __stdcall hooked_present(IDXGISwapChain* swapchain, UINT sync_interval, 
                         } else {
                             context->CopyResource(shared_texture.Get(), backbuffer.Get());
                         }
+                        draw_ui_cursor(context.Get(), swapchain);
                         ++render_frame.frame_sequence;
                         render_frame.capture_state = 3;
                         render_frame.last_hresult = S_OK;

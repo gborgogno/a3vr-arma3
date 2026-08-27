@@ -34,6 +34,10 @@ public:
     bool read(TrackingSnapshot& snapshot, std::string& status);
     bool publish_render(const SharedRenderFrame& frame);
     bool read_render(SharedRenderFrame& frame);
+    bool publish_aim_feedback(const AimFeedback& feedback);
+    bool read_aim_feedback(AimFeedback& feedback);
+    bool publish_haptic(const HapticRequest& request);
+    bool read_haptic(HapticRequest& request);
 
 private:
     struct Block;

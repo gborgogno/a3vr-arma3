@@ -1,20 +1,24 @@
-A3VR Hybrid is an experimental OpenXR bridge for Arma 3.
+A3VR Hybrid 1.0.0 is an experimental OpenXR bridge for 64-bit Arma 3.
 
-Current features:
-- Stable VR presentation with 6DoF head tracking
-- Right-hand motion-controller aiming
-- VR controller buttons and analog movement
-- Smooth turning
-- Reversible high-quality VR graphics preset
-- Compatibility with additional Arma 3 mods through the official Launcher
-
-Version: 1.13.0 experimental
+Highlights:
+- Experimental stereo VR gameplay and complete-frame menus/cinematics
+- FreeTrack 6DoF headset tracking
+- Controller-absolute, config-driven weapon proxy
+- Native ammo, cadence, projectile, damage, sound, and reload synchronization
+- Analog movement, smooth turn, stance controls, footsteps, recoil, and haptics
+- Controller binds for map, inventory, laser/light, bipod, and weapon mode
+- Physical mouse for start/configuration/Zeus/Eden/custom DLC interfaces
+- One official Arma 3 Launcher workflow for every DLC/mod preset
 
 Important:
-- Intended for local/private testing.
-- Requires an active OpenXR headset and 64-bit Windows.
+- This is not a native engine VR renderer. Stop if stereo causes discomfort.
+- Requires Windows x64, an active OpenXR runtime, FreeTrack, and PiP.
+- Disable BattlEye and never join protected multiplayer servers with this mod.
 - Do not load an older A3VR build at the same time.
-- Native DLL injection is required for D3D11 frame capture. Use without BattlEye and do not join protected multiplayer servers.
-- This is an unofficial community project and is not affiliated with Bohemia Interactive.
+- Modded weapons, custom campaign UI, vehicles, and non-Meta runtimes remain
+  best-effort/experimental.
+- The native binaries and PBO are not digitally signed. Verify the GitHub
+  release SHA-256 before installation.
 
-The Quality profile captures Arma at 2560x1440, improves shadow distance and terrain/object detail, and backs up the original Arma settings before changing them.
+This is an unofficial community project and is not affiliated with Bohemia
+Interactive.

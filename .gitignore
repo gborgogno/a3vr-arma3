@@ -1,8 +1,13 @@
 # Generated builds and packages
 /build*/
 /dist/
+/release/
 /.vs/
 /.cache/
+/.ci/
+/.tools/
+/A3VR-VR-Optics/
+/artifacts/
 
 # Local development and test artifacts
 /.codex-remote-attachments/
@@ -12,6 +17,15 @@
 /third_party/
 /assets/
 /standalone-mod/
+/local-test/
+/local-test-fixed/
+/local-test-v*/
+/.tmp/
+/.audit/
+/diagnostics/
+/recovery-v*/
+/release-*-worktree/
+/a3vr-runtime.ini
 /INICIAR_A3VR_CONTROLLER_TEST.cmd
 /INICIAR_A3VR_WEAPON_TEST.cmd
 

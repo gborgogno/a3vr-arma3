@@ -5,8 +5,8 @@
 
 namespace a3vr {
 namespace {
-constexpr char mapping_name[] = "Local\\A3VR_Tracking_v30";
-constexpr char mutex_name[] = "Local\\A3VR_Tracking_Mutex_v30";
+constexpr char mapping_name[] = "Local\\A3VR_Tracking_v31";
+constexpr char mutex_name[] = "Local\\A3VR_Tracking_Mutex_v31";
 constexpr std::uint32_t magic = 0x52563341; // A3VR
 }
 
@@ -17,6 +17,8 @@ struct SharedState::Block {
     std::uint32_t reserved{};
     TrackingSnapshot snapshot{};
     SharedRenderFrame render{};
+    AimFeedback aim_feedback{};
+    HapticRequest haptic{};
     char status[256]{};
 };
 
@@ -40,7 +42,7 @@ bool SharedState::create() {
     if (mapping == nullptr || !map(mapping)) return false;
     std::memset(block_, 0, sizeof(Block));
     block_->magic_value = magic;
-    block_->version = 10;
+    block_->version = 13;
     block_->server_pid = GetCurrentProcessId();
     strcpy_s(block_->status, "starting");
     return true;
@@ -50,7 +52,7 @@ bool SharedState::connect() {
     if (block_ != nullptr) return true;
     HANDLE mapping = OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, mapping_name);
     if (mapping == nullptr || !map(mapping)) return false;
-    if (block_->magic_value != magic || block_->version != 10) {
+    if (block_->magic_value != magic || block_->version != 13) {
         close();
         return false;
     }
@@ -93,6 +95,38 @@ bool SharedState::publish_render(const SharedRenderFrame& frame) {
 bool SharedState::read_render(SharedRenderFrame& frame) {
     if (!connect() || WaitForSingleObject(mutex_, 0) != WAIT_OBJECT_0) return false;
     frame = block_->render;
+    ReleaseMutex(mutex_);
+    return true;
+}
+
+bool SharedState::publish_aim_feedback(const AimFeedback& feedback) {
+    if (!connect() || WaitForSingleObject(mutex_, 5) != WAIT_OBJECT_0) return false;
+    const std::uint64_t next_sequence = block_->aim_feedback.sequence + 1;
+    block_->aim_feedback = feedback;
+    block_->aim_feedback.sequence = next_sequence;
+    ReleaseMutex(mutex_);
+    return true;
+}
+
+bool SharedState::read_aim_feedback(AimFeedback& feedback) {
+    if (!connect() || WaitForSingleObject(mutex_, 0) != WAIT_OBJECT_0) return false;
+    feedback = block_->aim_feedback;
+    ReleaseMutex(mutex_);
+    return true;
+}
+
+bool SharedState::publish_haptic(const HapticRequest& request) {
+    if (!connect() || WaitForSingleObject(mutex_, 5) != WAIT_OBJECT_0) return false;
+    const std::uint64_t next_sequence = block_->haptic.sequence + 1;
+    block_->haptic = request;
+    block_->haptic.sequence = next_sequence;
+    ReleaseMutex(mutex_);
+    return true;
+}
+
+bool SharedState::read_haptic(HapticRequest& request) {
+    if (!connect() || WaitForSingleObject(mutex_, 0) != WAIT_OBJECT_0) return false;
+    request = block_->haptic;
     ReleaseMutex(mutex_);
     return true;
 }

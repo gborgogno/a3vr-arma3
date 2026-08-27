@@ -10,13 +10,18 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   windows:
+    name: Build, test, and package
     runs-on: windows-2022
+    timeout-minutes: 45
+    outputs:
+      prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout A3VR source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Configure
         run: cmake -S . -B build-current -G "Visual Studio 17 2022" -A x64
       - name: Build
@@ -24,6 +29,7 @@ jobs:
       - name: Test
         run: ctest --test-dir build-current -C Release --output-on-failure
       - name: Validate release tag
+        id: version
         if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         run: |
@@ -31,13 +37,18 @@ jobs:
           if ($cmake -notmatch 'project\(A3VR VERSION ([0-9]+\.[0-9]+\.[0-9]+)') {
             throw 'Could not read A3VR version from CMakeLists.txt.'
           }
-          $expectedTag = "v$($Matches[1])"
-          if ($env:GITHUB_REF_NAME -ne $expectedTag) {
-            throw "Tag $env:GITHUB_REF_NAME does not match project version $expectedTag."
+          $baseTag = "v$($Matches[1])"
+          $tagMatch = [regex]::Match(
+            $env:GITHUB_REF_NAME,
+            "^$([regex]::Escape($baseTag))(?:-([0-9A-Za-z][0-9A-Za-z.-]*))?$"
+          )
+          if (-not $tagMatch.Success) {
+            throw "Tag $env:GITHUB_REF_NAME does not match project version $baseTag."
           }
+          "prerelease=$($tagMatch.Groups[2].Value)" >> $env:GITHUB_OUTPUT
       - name: Checkout pinned PBO packer
         if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: 4d4a5852/a3lib.py
           ref: 0d89b71a0b8453aba02ffd43edb6a6ee4e78b335
@@ -45,34 +56,64 @@ jobs:
       - name: Package installable mod
         if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
-        run: >-
-          ./scripts/package-release.ps1
-          -Configuration Release
-          -BuildDirectory build-current
-          -A3LibScript .ci/a3lib/a3lib.py
-          -OutputDirectory release
+        run: |
+          $arguments = @(
+            '-Configuration', 'Release',
+            '-BuildDirectory', 'build-current',
+            '-A3LibScript', '.ci/a3lib/a3lib.py',
+            '-OutputDirectory', 'release'
+          )
+          $prerelease = '${{ steps.version.outputs.prerelease }}'
+          if ($prerelease) {
+            $arguments += @('-PrereleaseLabel', $prerelease)
+          }
+          & ./scripts/package-release.ps1 @arguments
       - name: Upload packaged artifact
         if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: A3VR-Hybrid-${{ github.ref_name }}
           path: |
             release/*.zip
             release/*.sha256
           if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish GitHub release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: windows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout release notes
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Download verified build artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: A3VR-Hybrid-${{ github.ref_name }}
+          path: release-assets
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $assets = Get-ChildItem -LiteralPath release -File |
-            Where-Object { $_.Extension -eq '.zip' -or $_.Extension -eq '.sha256' } |
-            ForEach-Object { $_.FullName }
+          $assets = @(Get-ChildItem -LiteralPath release-assets -File |
+            Where-Object { $_.Extension -eq '.zip' -or $_.Extension -eq '.sha256' })
           if ($assets.Count -ne 2) {
             throw "Expected ZIP and SHA-256 assets, found $($assets.Count)."
           }
-          gh release create $env:GITHUB_REF_NAME @assets `
-            --verify-tag `
-            --title "A3VR $env:GITHUB_REF_NAME" `
-            --generate-notes
+          $arguments = @(
+            'release', 'create', $env:GITHUB_REF_NAME,
+            '--verify-tag',
+            '--title', "A3VR $env:GITHUB_REF_NAME",
+            '--notes-file', 'RELEASE_NOTES.md'
+          )
+          if ('${{ needs.windows.outputs.prerelease }}') {
+            $arguments += '--prerelease'
+          } else {
+            $arguments += '--latest'
+          }
+          gh @arguments @($assets.FullName)

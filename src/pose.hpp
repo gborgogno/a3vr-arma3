@@ -26,6 +26,37 @@ struct TrackedPose {
     Quat orientation{};
 };
 
+enum class MotionAimMode : std::uint32_t {
+    legacy_relative = 0,
+    absolute_weapon = 1,
+};
+
+struct WeaponPoseTarget {
+    bool valid{};
+    TrackedPose room_pose{};
+    TrackedPose player_pose{};
+    Vec3 muzzle_origin{};
+    Vec3 muzzle_direction{};
+};
+
+// Feedback produced by the Arma-side addon for the weapon that actually owns
+// the muzzle, particles, ammunition and reload animation.  The OpenXR runtime
+// uses it to close the controller-aim loop instead of blindly accumulating
+// controller deltas.
+struct AimFeedback {
+    std::uint64_t sequence{};
+    bool valid{};
+    Vec3 weapon_direction{};
+};
+
+struct HapticRequest {
+    std::uint64_t sequence{};
+    float amplitude{};
+    float frequency{};
+    std::uint32_t duration_ms{};
+    std::uint32_t hand_mask{}; // bit 0 left, bit 1 right
+};
+
 struct EyeView {
     TrackedPose pose{};
     std::array<float, 4> fov{}; // left, right, up, down angles in radians
@@ -46,6 +77,8 @@ struct TrackingSnapshot {
     float controller_turn_x{};
     float controller_turn_y{};
     std::uint32_t controller_buttons{};
+    MotionAimMode motion_aim_mode{MotionAimMode::legacy_relative};
+    WeaponPoseTarget weapon_target{};
 };
 
 // OpenXR: +X right, +Y up, -Z forward.
