@@ -57,6 +57,11 @@ private:
     mutable std::mutex data_mutex_{};
     TrackingSnapshot snapshot_{};
     std::string status_{"stopped"};
+    std::string runtime_name_{};
+    bool supports_pico_controller_{false};
+    bool supports_pico_ultra_controller_{false};
+    bool supports_vive_cosmos_controller_{false};
+    bool supports_vive_focus3_controller_{false};
 
     XrInstance instance_{XR_NULL_HANDLE};
     XrSystemId system_id_{XR_NULL_SYSTEM_ID};
@@ -106,6 +111,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D11Texture2D> game_texture_{};
     Microsoft::WRL::ComPtr<IDXGIKeyedMutex> game_texture_mutex_{};
     SharedRenderFrame active_render_frame_{};
+    std::int64_t swapchain_format_{};
     SharedState render_state_{};
     FreeTrackOutput freetrack_{};
     ControllerAimOutput controller_aim_{};

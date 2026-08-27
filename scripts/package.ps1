@@ -88,10 +88,11 @@ if (Test-Path -LiteralPath $LegacyPbo -PathType Leaf) {
 }
 Copy-Item -Force -LiteralPath $NativeDll -Destination $ModDirectory
 Copy-Item -Force -LiteralPath $ServerExe -Destination $ModDirectory
-if (Test-Path -LiteralPath (Join-Path $ProjectRoot "a3vr-runtime.ini")) {
-    Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "a3vr-runtime.ini") `
-        -Destination $ModDirectory
-}
+# Never package the developer's ignored runtime override: it may contain a
+# machine-specific Meta, SteamVR, VDXR, Pimax or PICO manifest path. Every
+# package starts neutral and follows the active Windows OpenXR runtime.
+Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "a3vr-runtime.example.ini") `
+    -Destination (Join-Path $ModDirectory "a3vr-runtime.ini")
 if (Test-Path -LiteralPath (Join-Path $ProjectRoot "a3vr-motion.ini")) {
     Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "a3vr-motion.ini") `
         -Destination $ModDirectory
@@ -99,6 +100,10 @@ if (Test-Path -LiteralPath (Join-Path $ProjectRoot "a3vr-motion.ini")) {
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "mod.cpp") -Destination $ModDirectory
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "README.md") -Destination $ModDirectory
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "ROADMAP.md") -Destination $ModDirectory
+$PackagedDocs = Join-Path $ModDirectory "docs"
+New-Item -ItemType Directory -Force -Path $PackagedDocs | Out-Null
+Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "docs\OPENXR_COMPATIBILITY.md") `
+    -Destination $PackagedDocs
 foreach ($DocumentationFile in @(
     "RELEASE_NOTES.md",
     "SECURITY.md",

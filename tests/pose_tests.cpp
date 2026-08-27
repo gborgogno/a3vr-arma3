@@ -4,6 +4,7 @@
 #include "../src/controller_input_output.hpp"
 #include "../src/absolute_weapon_pose.hpp"
 #include "../src/game_context.hpp"
+#include "../src/dxgi_format_compat.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -14,6 +15,19 @@ bool approximately_equal(const float a, const float b) { return std::abs(a - b) 
 }
 
 int main() {
+    const std::int64_t steamvr_formats[]{
+        DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+        DXGI_FORMAT_B8G8R8A8_UNORM_SRGB,
+    };
+    assert(a3vr::choose_openxr_swapchain_format(
+        DXGI_FORMAT_R8G8B8A8_UNORM, steamvr_formats) ==
+        DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
+    assert(a3vr::choose_openxr_swapchain_format(
+        DXGI_FORMAT_B8G8R8A8_UNORM, steamvr_formats) ==
+        DXGI_FORMAT_B8G8R8A8_UNORM_SRGB);
+    assert(a3vr::choose_openxr_swapchain_format(
+        DXGI_FORMAT_R10G10B10A2_UNORM, steamvr_formats) == 0);
+
     SetEnvironmentVariableA("A3VR_CONTROLLER_AIM", nullptr);
     SetEnvironmentVariableA("A3VR_CONTROLLER_BUTTONS", nullptr);
     SetEnvironmentVariableA("A3VR_SMOOTH_TURN", nullptr);

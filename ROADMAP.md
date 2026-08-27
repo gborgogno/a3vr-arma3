@@ -20,7 +20,10 @@ visual proxies provide the VR layer.
 
 ## Next priorities
 
-- [ ] Broaden live test coverage across OpenXR runtimes and controller profiles.
+- [x] Remove the packaged Meta runtime pin and add SteamVR/Vive, PICO, and
+  generic OpenXR controller bindings.
+- [ ] Complete the v17 live compatibility matrix across SteamVR, VDXR,
+  Pimax/PICO, and other OpenXR headset/controller routes.
 - [ ] Add deterministic regression scenarios for campaign UI/context handoff.
 - [ ] Expand config-driven weapon fixtures for unusual P3D axes, ejection
   points, belt selections, shotguns, and scripted fire modes.

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(A3VR VERSION 1.0.0 LANGUAGES C CXX)
+project(A3VR VERSION 1.0.1 LANGUAGES C CXX)
 
 if(NOT WIN32 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
     message(FATAL_ERROR "A3VR currently requires 64-bit Windows.")
@@ -43,6 +43,7 @@ FetchContent_MakeAvailable(minhook)
 add_library(A3VR SHARED
     src/d3d11_capture.cpp
     src/d3d11_capture.hpp
+    src/dxgi_format_compat.hpp
     src/extension.cpp
     src/game_context.hpp
     src/pose.hpp
@@ -73,6 +74,7 @@ add_executable(A3VRServer
     src/controller_input_output.hpp
     src/freetrack_output.cpp
     src/freetrack_output.hpp
+    src/dxgi_format_compat.hpp
     src/game_context.hpp
     src/openxr_tracker.cpp
     src/openxr_tracker.hpp
@@ -102,6 +104,7 @@ add_executable(a3vr_math_tests
     src/freetrack_output.cpp
     src/freetrack_output.hpp
     src/game_context.hpp
+    src/dxgi_format_compat.hpp
 )
 target_compile_options(a3vr_math_tests PRIVATE /W4 /permissive- /EHsc /utf-8 /UNDEBUG)
 target_link_libraries(a3vr_math_tests PRIVATE user32)
@@ -134,4 +137,11 @@ install(FILES
     NOTICE
     THIRD_PARTY_LICENSES.md
     DESTINATION "@A3VR_Hybrid"
+)
+install(FILES a3vr-runtime.example.ini
+    DESTINATION "@A3VR_Hybrid"
+    RENAME "a3vr-runtime.ini"
+)
+install(FILES docs/OPENXR_COMPATIBILITY.md
+    DESTINATION "@A3VR_Hybrid/docs"
 )

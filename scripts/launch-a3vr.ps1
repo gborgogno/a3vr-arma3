@@ -27,6 +27,34 @@ $Game = Join-Path $GameDirectory "arma3_x64.exe"
 $Launcher = Join-Path $GameDirectory "arma3launcher.exe"
 $ModDirectory = Split-Path -Parent $PSScriptRoot
 $Runtime = Join-Path $ModDirectory "A3VRRuntime_v31.exe"
+$RuntimeConfig = Join-Path $ModDirectory "a3vr-runtime.ini"
+$RuntimeOverride = ""
+if (Test-Path -LiteralPath $RuntimeConfig -PathType Leaf) {
+    $RuntimeOverride = [string](Get-Content -LiteralPath $RuntimeConfig |
+        Where-Object { $_ -match '^\s*runtime\s*=' } |
+        Select-Object -First 1)
+    if ($RuntimeOverride) {
+        $RuntimeOverride = ($RuntimeOverride -replace '^\s*runtime\s*=\s*', '').Trim()
+    }
+    if ($RuntimeOverride -and -not (Test-Path -LiteralPath $RuntimeOverride -PathType Leaf)) {
+        throw "The configured OpenXR runtime manifest was not found: $RuntimeOverride"
+    }
+}
+$EffectiveRuntimeManifest = $RuntimeOverride
+if (-not $EffectiveRuntimeManifest) {
+    $OpenXrRegistry = "HKLM:\SOFTWARE\Khronos\OpenXR\1"
+    try {
+        $EffectiveRuntimeManifest = [string](Get-ItemPropertyValue `
+            -LiteralPath $OpenXrRegistry -Name ActiveRuntime -ErrorAction Stop)
+    } catch {
+        Write-Warning "A3VR could not read the active Windows OpenXR runtime; audio routing was left unchanged."
+    }
+}
+$AudioRoute = if ($EffectiveRuntimeManifest -match '(?i)steamxr.*\.json$') {
+    "SteamVR"
+} else {
+    "Keep"
+}
 
 if (-not (Test-Path -LiteralPath $Game)) { throw "Arma 3 was not found at $Game" }
 if ($UseArmaLauncher -and -not (Test-Path -LiteralPath $Launcher)) {
@@ -72,7 +100,8 @@ if (Get-Process -Name "A3VRRuntime_v*" -ErrorAction SilentlyContinue) {
 
 $ProfileTuner = Join-Path $PSScriptRoot "set-a3vr-profile.ps1"
 if (Test-Path -LiteralPath $ProfileTuner) {
-    & $ProfileTuner -GraphicsPreset Stereo
+    & $ProfileTuner -GraphicsPreset Stereo -AudioRoute $AudioRoute `
+        -SteamVrManifest $EffectiveRuntimeManifest
 }
 
 $env:A3VR_STEREO_MODE = "sbs"
@@ -98,6 +127,11 @@ $RuntimeStartInfo.WorkingDirectory = [System.IO.Path]::GetFullPath($ModDirectory
 $RuntimeStartInfo.UseShellExecute = $false
 $RuntimeStartInfo.CreateNoWindow = $true
 $RuntimeStartInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+if ($RuntimeOverride) {
+    # Scope the override to the A3VR child process. Do not change the global
+    # Windows OpenXR runtime or leak the choice into unrelated applications.
+    $RuntimeStartInfo.EnvironmentVariables["XR_RUNTIME_JSON"] = $RuntimeOverride
+}
 $RuntimeProcess = New-Object System.Diagnostics.Process
 $RuntimeProcess.StartInfo = $RuntimeStartInfo
 if (-not $RuntimeProcess.Start()) {

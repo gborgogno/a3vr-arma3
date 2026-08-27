@@ -2,7 +2,10 @@ param(
     [double]$FovTop = 1.03,
     [double]$FovLeft = 2.06,
     [ValidateSet("Stereo", "Ultra", "Quality", "Balanced")]
-    [string]$GraphicsPreset = "Stereo"
+    [string]$GraphicsPreset = "Stereo",
+    [ValidateSet("Keep", "SteamVR")]
+    [string]$AudioRoute = "Keep",
+    [string]$SteamVrManifest = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -114,6 +117,35 @@ function Set-ArmaAssignment {
     return $Text.TrimEnd() + [Environment]::NewLine + $Replacement + [Environment]::NewLine
 }
 
+function Find-SteamVrAudioEndpoint {
+    param(
+        [Parameter(Mandatory)] [string]$DeviceName,
+        [Parameter(Mandatory)] [ValidateSet("Render", "Capture")] [string]$Flow
+    )
+    $SteamRoots = @()
+    if ($SteamVrManifest -and (Test-Path -LiteralPath $SteamVrManifest -PathType Leaf)) {
+        $SteamVrDirectory = Split-Path -Parent ([IO.Path]::GetFullPath($SteamVrManifest))
+        $SteamRoots += [IO.Path]::GetFullPath((Join-Path $SteamVrDirectory "..\..\.."))
+    }
+    foreach ($ProgramRoot in @(${env:ProgramFiles(x86)}, $env:ProgramFiles)) {
+        if ($ProgramRoot) { $SteamRoots += Join-Path $ProgramRoot "Steam" }
+    }
+    $SteamRoots = $SteamRoots | Select-Object -Unique | Where-Object {
+        $_ -and (Test-Path -LiteralPath $_ -PathType Container)
+    }
+    foreach ($SteamRoot in $SteamRoots) {
+        $Log = Join-Path $SteamRoot "logs\vrmonitor.txt"
+        if (-not (Test-Path -LiteralPath $Log -PathType Leaf)) { continue }
+        $Pattern = [regex]::Escape($DeviceName) +
+            '.*?(\{0\.0\.' + $(if ($Flow -eq "Render") { '0' } else { '1' }) +
+            '\.00000000\}\.\{[0-9a-fA-F-]+\})'
+        $Match = Select-String -LiteralPath $Log -Pattern $Pattern -AllMatches |
+            ForEach-Object { $_.Matches } | Select-Object -Last 1
+        if ($null -ne $Match) { return $Match.Groups[1].Value }
+    }
+    throw "SteamVR audio endpoint '$DeviceName' was not found. Start SteamVR once and retry."
+}
+
 $Text = [IO.File]::ReadAllText($Profile.FullName)
 $TopText = $FovTop.ToString("0.#######", [Globalization.CultureInfo]::InvariantCulture)
 $LeftText = $FovLeft.ToString("0.#######", [Globalization.CultureInfo]::InvariantCulture)
@@ -131,10 +163,25 @@ $ProfileValues = [ordered]@{
     terrainGrid = $Selected.TerrainGrid.ToString(
         "0.###", [Globalization.CultureInfo]::InvariantCulture)
 }
+if ($AudioRoute -eq "SteamVR") {
+    $SteamOutput = Find-SteamVrAudioEndpoint `
+        -DeviceName "Steam Streaming Speakers" -Flow Render
+    $SteamInput = Find-SteamVrAudioEndpoint `
+        -DeviceName "Steam Streaming Microphone" -Flow Capture
+    $ProfileValues.preferredOutputDevice = '"' + $SteamOutput + '"'
+    $ProfileValues.preferredInputDevice = '"' + $SteamInput + '"'
+}
 foreach ($Entry in $ProfileValues.GetEnumerator()) {
     $Text = Set-ArmaAssignment -Text $Text -Name $Entry.Key -Value $Entry.Value
 }
 
+$AudioBackup = "not created"
+if ($AudioRoute -ne "Keep") {
+    $AudioBackup = "$($Profile.FullName).a3vr-pre-steamvr-audio"
+    if (-not (Test-Path -LiteralPath $AudioBackup)) {
+        Copy-Item -LiteralPath $Profile.FullName -Destination $AudioBackup
+    }
+}
 $ProfileBackup = "$($Profile.FullName).a3vr-pre-vr-quality"
 if (-not (Test-Path -LiteralPath $ProfileBackup)) {
     Copy-Item -LiteralPath $Profile.FullName -Destination $ProfileBackup
@@ -189,4 +236,8 @@ if (Test-Path -LiteralPath $ArmaConfig -PathType Leaf) {
 Write-Host "A3VR applied the $GraphicsPreset VR graphics preset to $($Profile.Name)."
 Write-Host "VR capture: $($Selected.OutputWidth)x$($Selected.OutputHeight); render target: $($Selected.RenderWidth)x$($Selected.RenderHeight)."
 Write-Host "Shadows: quality $($Selected.ShadowQuality), $($Selected.ShadowDistance)m."
+if ($AudioRoute -eq "SteamVR") {
+    Write-Host "SteamVR audio: $SteamOutput; microphone: $SteamInput."
+    Write-Host "Audio backup: $AudioBackup"
+}
 Write-Host "Backups: $ProfileBackup and $ConfigBackup"

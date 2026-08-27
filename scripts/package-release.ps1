@@ -74,6 +74,8 @@ foreach ($GeneratedFile in @($ZipPath, $HashPath)) {
 New-Item -ItemType Directory -Force -Path $AddonDestination | Out-Null
 Copy-Item -Force -LiteralPath $NativeDll -Destination $ModDirectory
 Copy-Item -Force -LiteralPath $RuntimeExe -Destination $ModDirectory
+Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "a3vr-runtime.example.ini") `
+    -Destination (Join-Path $ModDirectory "a3vr-runtime.ini")
 foreach ($ProjectFile in @(
     "a3vr-motion.ini",
     "mod.cpp",
@@ -89,6 +91,10 @@ foreach ($ProjectFile in @(
 )) {
     Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot $ProjectFile) -Destination $ModDirectory
 }
+$PackagedDocs = Join-Path $ModDirectory "docs"
+New-Item -ItemType Directory -Force -Path $PackagedDocs | Out-Null
+Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "docs\OPENXR_COMPATIBILITY.md") `
+    -Destination $PackagedDocs
 $PackagedScripts = Join-Path $ModDirectory "scripts"
 New-Item -ItemType Directory -Force -Path $PackagedScripts | Out-Null
 foreach ($ScriptFile in @("launch-a3vr.ps1", "set-a3vr-profile.ps1")) {

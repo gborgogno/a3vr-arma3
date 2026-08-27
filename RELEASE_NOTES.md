@@ -1,42 +1,44 @@
-# A3VR Hybrid 1.0.0
+# A3VR Hybrid 1.0.1
 
-This is the first stable-numbered A3VR Hybrid release. It consolidates the v16
-local-test line: experimental stereo presentation, controller-absolute weapon
-control, native gameplay synchronization, controller binds, haptics, locomotion,
-UI context handling, and official Launcher integration.
+This patch release expands the v17 OpenXR path beyond the Meta runtime and
+fixes the black headset image observed through SteamVR. It keeps the packaged
+runtime selection neutral so the same mod can follow Meta OpenXR, SteamVR,
+VDXR, Pimax OpenXR, PICO OpenXR, WMR OpenXR, or another active Windows runtime.
 
 ## Highlights
 
-- Experimental per-eye stereo gameplay with complete menu/cinematic framing.
-- Config-driven proxy weapons instead of a hard-coded weapon list.
-- Native ammo, per-mode cadence, projectile, damage, sound, reload, and fire
-  validation remain authoritative.
-- Best-effort weapon-relative cartridge, muzzle effect, magazine, box, and belt
-  visuals driven by model configuration.
-- Analog movement, surface footsteps, smooth turn, stance input, room-scale
-  crouch, head/body movement direction, and weapon-only recoil settings.
-- OpenXR haptics for shots, damage, and explosions.
-- Controller chords for map, inventory, laser/light, bipod, and proxy/native
-  control; conflicting `F5`-`F10` shortcuts were removed.
-- Physical-mouse ownership for start/configuration/Zeus/Eden/custom dialogs;
-  supported map/inventory UI retains the software cursor and guide ray.
-- One official-Launcher flow for all DLC and mod presets. No DLC-specific start
-  script is required.
-- Repeatable tag packaging, immutable CI/dependency pins, SHA-256 release
-  assets, secret scanning, static analysis, and Microsoft Defender scanning.
+- Reports the active OpenXR runtime name and version in A3VR status output.
+- Adds controller bindings for Oculus Touch, Valve Index, Vive, WMR, PICO,
+  HTC Cosmos/Focus 3, and the Khronos simple-controller fallback.
+- Accepts compatible DXGI UNORM/sRGB swapchain variants instead of requiring
+  an exact format match. This fixes the SteamVR black-image failure where Arma
+  supplied DXGI format 28 and SteamVR exposed compatible format 29.
+- Detects SteamVR whether it is selected globally or through the optional local
+  runtime override and applies the Steam Streaming Speakers/Microphone to the
+  Arma profile before launch. Existing profile values are backed up first.
+- Locates SteamVR audio logs from the selected runtime manifest, including
+  Steam libraries installed outside the default Program Files directories.
+- Includes an OpenXR compatibility matrix and a neutral runtime template in the
+  installable package.
+
+## Validation recorded for this release
+
+- Clean x64 Release build and automated native tests.
+- Release archive, PBO contents, version metadata, and SHA-256 checksum.
+- Live image and head-tracking startup through SteamVR/OpenXR 2.16.7 on a Meta
+  Quest 3S, including the DXGI 28-to-29 compatibility fallback.
 
 ## Important limitations
 
-- This remains an experimental Arma-to-OpenXR bridge, not a native engine VR
+- SteamVR controller feel, haptics, automatic audio routing, head-roll warping,
+  and 3DoF motion-controller behavior still require headset acceptance tests.
+- Other headset/runtime routes remain implemented but live-test pending.
+- This is an experimental Arma-to-OpenXR bridge, not a native engine VR
   renderer. Stop if stereo causes discomfort.
 - PiP must remain enabled. Magnified core optics, independent hands/arms, and
   manual VR reloads are not included.
-- Modded weapon effects, belt/magazine selections, model axes, and custom
-  campaign UI are config-dependent and cannot be guaranteed universally.
-- Vehicles and mission/mod-specific actions may require keyboard and mouse.
 - BattlEye, protected multiplayer, Authenticode signing, and PBO signatures are
   not supported in this release.
 
-See `README.md` for installation, every built-in controller binding, settings,
-compatibility notes, troubleshooting, security behavior, and the full known-
-limitations list.
+See `README.md` and `docs/OPENXR_COMPATIBILITY.md` for installation, controller
+bindings, test scope, troubleshooting, and the complete known limitations.

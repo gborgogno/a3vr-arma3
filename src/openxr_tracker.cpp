@@ -1,5 +1,6 @@
 #include "openxr_tracker.hpp"
 #include "game_context.hpp"
+#include "dxgi_format_compat.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -164,6 +165,7 @@ void OpenXrTracker::set_status(std::string message) {
 void OpenXrTracker::set_error(std::string message) {
     std::scoped_lock lock(data_mutex_);
     status_ = "error: " + std::move(message);
+    if (!runtime_name_.empty()) status_ += " [" + runtime_name_ + "]";
 }
 
 void OpenXrTracker::worker_main() {
@@ -289,7 +291,32 @@ bool OpenXrTracker::initialize() {
         return false;
     }
 
-    const char* enabled_extensions[] = {XR_KHR_D3D11_ENABLE_EXTENSION_NAME};
+    const auto has_extension = [&](const char* name) {
+        return std::ranges::any_of(extensions, [&](const auto& extension) {
+            return std::strcmp(extension.extensionName, name) == 0;
+        });
+    };
+    supports_pico_controller_ = has_extension(XR_BD_CONTROLLER_INTERACTION_EXTENSION_NAME);
+    supports_pico_ultra_controller_ =
+        has_extension(XR_BD_ULTRA_CONTROLLER_INTERACTION_EXTENSION_NAME);
+    supports_vive_cosmos_controller_ =
+        has_extension(XR_HTC_VIVE_COSMOS_CONTROLLER_INTERACTION_EXTENSION_NAME);
+    supports_vive_focus3_controller_ =
+        has_extension(XR_HTC_VIVE_FOCUS3_CONTROLLER_INTERACTION_EXTENSION_NAME);
+
+    std::vector<const char*> enabled_extensions{XR_KHR_D3D11_ENABLE_EXTENSION_NAME};
+    if (supports_pico_controller_) {
+        enabled_extensions.push_back(XR_BD_CONTROLLER_INTERACTION_EXTENSION_NAME);
+    }
+    if (supports_pico_ultra_controller_) {
+        enabled_extensions.push_back(XR_BD_ULTRA_CONTROLLER_INTERACTION_EXTENSION_NAME);
+    }
+    if (supports_vive_cosmos_controller_) {
+        enabled_extensions.push_back(XR_HTC_VIVE_COSMOS_CONTROLLER_INTERACTION_EXTENSION_NAME);
+    }
+    if (supports_vive_focus3_controller_) {
+        enabled_extensions.push_back(XR_HTC_VIVE_FOCUS3_CONTROLLER_INTERACTION_EXTENSION_NAME);
+    }
     set_status("initializing: create instance");
     XrInstanceCreateInfo instance_info{XR_TYPE_INSTANCE_CREATE_INFO};
     strcpy_s(instance_info.applicationInfo.applicationName, "A3VR");
@@ -299,13 +326,26 @@ bool OpenXrTracker::initialize() {
     // SteamVR on some Meta Link installations still advertises OpenXR 1.0.
     // A3VR only uses 1.0 core commands, so request the compatible API level.
     instance_info.applicationInfo.apiVersion = XR_API_VERSION_1_0;
-    instance_info.enabledExtensionCount = 1;
-    instance_info.enabledExtensionNames = enabled_extensions;
+    instance_info.enabledExtensionCount =
+        static_cast<std::uint32_t>(enabled_extensions.size());
+    instance_info.enabledExtensionNames = enabled_extensions.data();
     const XrResult create_instance_result = xrCreateInstance(&instance_info, &instance_);
     if (!xr_ok(create_instance_result)) {
         set_error("xrCreateInstance failed (" +
                   std::to_string(static_cast<std::int32_t>(create_instance_result)) + ")");
         return false;
+    }
+
+    XrInstanceProperties instance_properties{XR_TYPE_INSTANCE_PROPERTIES};
+    if (xr_ok(xrGetInstanceProperties(instance_, &instance_properties))) {
+        std::ostringstream runtime;
+        runtime << instance_properties.runtimeName << ' '
+                << XR_VERSION_MAJOR(instance_properties.runtimeVersion) << '.'
+                << XR_VERSION_MINOR(instance_properties.runtimeVersion) << '.'
+                << XR_VERSION_PATCH(instance_properties.runtimeVersion);
+        runtime_name_ = runtime.str();
+    } else {
+        runtime_name_ = "unknown OpenXR runtime";
     }
 
     XrSystemGetInfo system_info{XR_TYPE_SYSTEM_GET_INFO};
@@ -362,7 +402,7 @@ bool OpenXrTracker::initialize() {
     }
 
     std::scoped_lock lock(data_mutex_);
-    status_ = "waiting for headset";
+    status_ = "waiting for headset [" + runtime_name_ + "]";
     return true;
 }
 
@@ -493,6 +533,9 @@ bool OpenXrTracker::create_actions() {
     suggest_profile("/interaction_profiles/khr/simple_controller", {
         {hand_pose_action_, "/user/hand/left/input/aim/pose"},
         {hand_pose_action_, "/user/hand/right/input/aim/pose"},
+        {fire_action_, "/user/hand/right/input/select"},
+        {reload_action_, "/user/hand/right/input/menu/click"},
+        {interact_action_, "/user/hand/left/input/menu/click"},
         {haptic_action_, "/user/hand/left/output/haptic"},
         {haptic_action_, "/user/hand/right/output/haptic"},
     });
@@ -500,9 +543,9 @@ bool OpenXrTracker::create_actions() {
         {hand_pose_action_, "/user/hand/left/input/aim/pose"},
         {hand_pose_action_, "/user/hand/right/input/aim/pose"},
         {fire_action_, "/user/hand/right/input/trigger/value"},
-        {aim_action_, "/user/hand/right/input/squeeze/value"},
+        {aim_action_, "/user/hand/right/input/squeeze"},
         {left_trigger_action_, "/user/hand/left/input/trigger/value"},
-        {left_squeeze_action_, "/user/hand/left/input/squeeze/value"},
+        {left_squeeze_action_, "/user/hand/left/input/squeeze"},
         {left_thumb_touch_action_, "/user/hand/left/input/thumbstick/touch"},
         {move_action_, "/user/hand/left/input/thumbstick"},
         {move_x_action_, "/user/hand/left/input/thumbstick/x"},
@@ -523,9 +566,9 @@ bool OpenXrTracker::create_actions() {
         {hand_pose_action_, "/user/hand/left/input/aim/pose"},
         {hand_pose_action_, "/user/hand/right/input/aim/pose"},
         {fire_action_, "/user/hand/right/input/trigger/value"},
-        {aim_action_, "/user/hand/right/input/squeeze/value"},
+        {aim_action_, "/user/hand/right/input/squeeze"},
         {left_trigger_action_, "/user/hand/left/input/trigger/value"},
-        {left_squeeze_action_, "/user/hand/left/input/squeeze/value"},
+        {left_squeeze_action_, "/user/hand/left/input/squeeze"},
         {left_thumb_touch_action_, "/user/hand/left/input/thumbstick/touch"},
         {move_action_, "/user/hand/left/input/thumbstick"},
         {move_x_action_, "/user/hand/left/input/thumbstick/x"},
@@ -542,11 +585,33 @@ bool OpenXrTracker::create_actions() {
         {haptic_action_, "/user/hand/left/output/haptic"},
         {haptic_action_, "/user/hand/right/output/haptic"},
     });
+    suggest_profile("/interaction_profiles/htc/vive_controller", {
+        {hand_pose_action_, "/user/hand/left/input/aim/pose"},
+        {hand_pose_action_, "/user/hand/right/input/aim/pose"},
+        {fire_action_, "/user/hand/right/input/trigger/value"},
+        {aim_action_, "/user/hand/right/input/squeeze"},
+        {left_trigger_action_, "/user/hand/left/input/trigger/value"},
+        {left_squeeze_action_, "/user/hand/left/input/squeeze"},
+        {move_action_, "/user/hand/left/input/trackpad"},
+        {move_x_action_, "/user/hand/left/input/trackpad/x"},
+        {move_y_action_, "/user/hand/left/input/trackpad/y"},
+        {right_move_action_, "/user/hand/right/input/trackpad"},
+        {right_move_x_action_, "/user/hand/right/input/trackpad/x"},
+        {right_move_y_action_, "/user/hand/right/input/trackpad/y"},
+        {sprint_action_, "/user/hand/left/input/trackpad/click"},
+        {reload_action_, "/user/hand/right/input/menu/click"},
+        {fire_mode_action_, "/user/hand/right/input/trackpad/click"},
+        {interact_action_, "/user/hand/left/input/menu/click"},
+        {haptic_action_, "/user/hand/left/output/haptic"},
+        {haptic_action_, "/user/hand/right/output/haptic"},
+    });
     suggest_profile("/interaction_profiles/microsoft/motion_controller", {
         {hand_pose_action_, "/user/hand/left/input/aim/pose"},
         {hand_pose_action_, "/user/hand/right/input/aim/pose"},
         {fire_action_, "/user/hand/right/input/trigger/value"},
+        {aim_action_, "/user/hand/right/input/squeeze"},
         {left_trigger_action_, "/user/hand/left/input/trigger/value"},
+        {left_squeeze_action_, "/user/hand/left/input/squeeze"},
         {move_action_, "/user/hand/left/input/thumbstick"},
         {move_x_action_, "/user/hand/left/input/thumbstick/x"},
         {move_y_action_, "/user/hand/left/input/thumbstick/y"},
@@ -560,6 +625,61 @@ bool OpenXrTracker::create_actions() {
         {haptic_action_, "/user/hand/left/output/haptic"},
         {haptic_action_, "/user/hand/right/output/haptic"},
     });
+
+    auto suggest_touch_style_profile = [&](const char* profile_name) {
+        suggest_profile(profile_name, {
+            {hand_pose_action_, "/user/hand/left/input/aim/pose"},
+            {hand_pose_action_, "/user/hand/right/input/aim/pose"},
+            {fire_action_, "/user/hand/right/input/trigger/value"},
+            {aim_action_, "/user/hand/right/input/squeeze"},
+            {left_trigger_action_, "/user/hand/left/input/trigger/value"},
+            {left_squeeze_action_, "/user/hand/left/input/squeeze"},
+            {left_thumb_touch_action_, "/user/hand/left/input/thumbstick/touch"},
+            {move_action_, "/user/hand/left/input/thumbstick"},
+            {move_x_action_, "/user/hand/left/input/thumbstick/x"},
+            {move_y_action_, "/user/hand/left/input/thumbstick/y"},
+            {right_move_action_, "/user/hand/right/input/thumbstick"},
+            {right_move_x_action_, "/user/hand/right/input/thumbstick/x"},
+            {right_move_y_action_, "/user/hand/right/input/thumbstick/y"},
+            {sprint_action_, "/user/hand/left/input/thumbstick/click"},
+            {reload_action_, "/user/hand/right/input/a/click"},
+            {fire_mode_action_, "/user/hand/right/input/thumbstick/click"},
+            {swap_weapon_action_, "/user/hand/left/input/y/click"},
+            {vault_action_, "/user/hand/right/input/b/click"},
+            {interact_action_, "/user/hand/left/input/x/click"},
+            {haptic_action_, "/user/hand/left/output/haptic"},
+            {haptic_action_, "/user/hand/right/output/haptic"},
+        });
+    };
+    if (supports_pico_controller_) {
+        suggest_touch_style_profile("/interaction_profiles/bytedance/pico_neo3_controller");
+        suggest_touch_style_profile("/interaction_profiles/bytedance/pico4_controller");
+        suggest_profile("/interaction_profiles/bytedance/pico_g3_controller", {
+            {hand_pose_action_, "/user/hand/left/input/aim/pose"},
+            {hand_pose_action_, "/user/hand/right/input/aim/pose"},
+            {fire_action_, "/user/hand/right/input/trigger/value"},
+            {left_trigger_action_, "/user/hand/left/input/trigger/value"},
+            {move_action_, "/user/hand/left/input/thumbstick"},
+            {move_x_action_, "/user/hand/left/input/thumbstick/x"},
+            {move_y_action_, "/user/hand/left/input/thumbstick/y"},
+            {right_move_action_, "/user/hand/right/input/thumbstick"},
+            {right_move_x_action_, "/user/hand/right/input/thumbstick/x"},
+            {right_move_y_action_, "/user/hand/right/input/thumbstick/y"},
+            {sprint_action_, "/user/hand/left/input/thumbstick/click"},
+            {reload_action_, "/user/hand/right/input/menu/click"},
+            {fire_mode_action_, "/user/hand/right/input/thumbstick/click"},
+            {interact_action_, "/user/hand/left/input/menu/click"},
+        });
+    }
+    if (supports_pico_ultra_controller_) {
+        suggest_touch_style_profile("/interaction_profiles/bytedance/pico_ultra_controller_bd");
+    }
+    if (supports_vive_cosmos_controller_) {
+        suggest_touch_style_profile("/interaction_profiles/htc/vive_cosmos_controller");
+    }
+    if (supports_vive_focus3_controller_) {
+        suggest_touch_style_profile("/interaction_profiles/htc/vive_focus3_controller");
+    }
 
     for (std::size_t index = 0; index < hand_spaces_.size(); ++index) {
         XrActionSpaceCreateInfo action_space_info{XR_TYPE_ACTION_SPACE_CREATE_INFO};
@@ -591,6 +711,7 @@ void OpenXrTracker::destroy_render_resources() {
         eye.handle = XR_NULL_HANDLE;
     }
     active_render_frame_ = {};
+    swapchain_format_ = 0;
 }
 
 bool OpenXrTracker::create_render_swapchains(const SharedRenderFrame& frame) {
@@ -599,11 +720,20 @@ bool OpenXrTracker::create_render_swapchains(const SharedRenderFrame& frame) {
     std::vector<std::int64_t> formats(format_count);
     if (!xr_ok(xrEnumerateSwapchainFormats(session_, format_count, &format_count,
                                            formats.data()))) return false;
-    const auto format = static_cast<std::int64_t>(frame.dxgi_format);
-    if (std::ranges::find(formats, format) == formats.end()) {
-        set_error("Arma backbuffer format is not accepted by the OpenXR runtime");
+    const auto source_format = static_cast<DXGI_FORMAT>(frame.dxgi_format);
+    const auto format = choose_openxr_swapchain_format(source_format, formats);
+    if (format == 0) {
+        std::ostringstream error;
+        error << "Arma backbuffer format " << frame.dxgi_format
+              << " has no copy-compatible OpenXR swapchain format; runtime formats=";
+        for (std::size_t index = 0; index < formats.size(); ++index) {
+            if (index != 0) error << ',';
+            error << formats[index];
+        }
+        set_error(error.str());
         return false;
     }
+    swapchain_format_ = format;
 
     for (auto& eye : eye_swapchains_) {
         XrSwapchainCreateInfo info{XR_TYPE_SWAPCHAIN_CREATE_INFO};
@@ -666,8 +796,12 @@ bool OpenXrTracker::update_shared_render_source() {
     // game was loading (often the headset is on a desk then). The first real
     // Arma backbuffer is the stable, user-facing recenter point.
     if (first_frame_from_game) freetrack_.recenter();
-    set_status(mono_mode_ ? "tracking + comfort mono" :
-               (sbs_mode_ ? "tracking + depth SBS" : "tracking; video mode required"));
+    const std::string tracking_status = mono_mode_ ? "tracking + comfort mono" :
+        (sbs_mode_ ? "tracking + depth SBS" : "tracking; video mode required");
+    std::ostringstream status;
+    status << tracking_status << " [" << runtime_name_ << "] dxgi="
+           << active_render_frame_.dxgi_format << "->" << swapchain_format_;
+    set_status(status.str());
     return true;
 }
 
@@ -683,7 +817,7 @@ void OpenXrTracker::poll_events() {
                 if (xr_ok(xrBeginSession(session_, &begin_info))) {
                     session_running_ = true;
                     std::scoped_lock lock(data_mutex_);
-                    status_ = "tracking";
+                    status_ = "tracking [" + runtime_name_ + "]";
                 }
             } else if (session_state_ == XR_SESSION_STATE_STOPPING && session_running_) {
                 (void)xrEndSession(session_);
@@ -1131,6 +1265,11 @@ void OpenXrTracker::shutdown() {
     if (session_ != XR_NULL_HANDLE) xrDestroySession(session_);
     session_for_stop_.store(XR_NULL_HANDLE);
     if (instance_ != XR_NULL_HANDLE) xrDestroyInstance(instance_);
+    runtime_name_.clear();
+    supports_pico_controller_ = false;
+    supports_pico_ultra_controller_ = false;
+    supports_vive_cosmos_controller_ = false;
+    supports_vive_focus3_controller_ = false;
     view_space_ = local_space_ = XR_NULL_HANDLE;
     hand_pose_action_ = fire_action_ = aim_action_ = left_trigger_action_ =
         left_squeeze_action_ = left_thumb_touch_action_ = move_action_ = XR_NULL_HANDLE;
