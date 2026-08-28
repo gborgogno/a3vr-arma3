@@ -230,6 +230,24 @@ bool OpenXrTracker::initialize() {
                        motion_mode == "absoluteweapon"
         ? MotionAimMode::absolute_weapon
         : MotionAimMode::legacy_relative;
+    std::string roll_stabilization = read_motion_setting(
+        "A3VR_ROLL_STABILIZATION", L"roll_stabilization", motion_ini);
+    std::ranges::transform(roll_stabilization, roll_stabilization.begin(),
+        [](const unsigned char character) {
+            return static_cast<char>(std::tolower(character));
+        });
+    roll_stabilization_enabled_ = roll_stabilization != "0" &&
+        roll_stabilization != "false" && roll_stabilization != "off";
+    std::string captured_pose_reprojection = read_motion_setting(
+        "A3VR_CAPTURED_POSE_REPROJECTION", L"captured_pose_reprojection", motion_ini);
+    std::ranges::transform(captured_pose_reprojection,
+        captured_pose_reprojection.begin(),
+        [](const unsigned char character) {
+            return static_cast<char>(std::tolower(character));
+        });
+    captured_pose_reprojection_enabled_ = captured_pose_reprojection != "0" &&
+        captured_pose_reprojection != "false" &&
+        captured_pose_reprojection != "off";
     controller_aim_.configure_absolute_servo(
         read_motion_float("A3VR_CONTROLLER_SERVO_COUNTS_PER_RADIAN",
                           L"servo_counts_per_radian", motion_ini,
@@ -303,6 +321,10 @@ bool OpenXrTracker::initialize() {
         has_extension(XR_HTC_VIVE_COSMOS_CONTROLLER_INTERACTION_EXTENSION_NAME);
     supports_vive_focus3_controller_ =
         has_extension(XR_HTC_VIVE_FOCUS3_CONTROLLER_INTERACTION_EXTENSION_NAME);
+    supports_touch_pro_controller_ =
+        has_extension(XR_FB_TOUCH_CONTROLLER_PRO_EXTENSION_NAME);
+    supports_touch_plus_controller_ =
+        has_extension(XR_META_TOUCH_CONTROLLER_PLUS_EXTENSION_NAME);
 
     std::vector<const char*> enabled_extensions{XR_KHR_D3D11_ENABLE_EXTENSION_NAME};
     if (supports_pico_controller_) {
@@ -316,6 +338,12 @@ bool OpenXrTracker::initialize() {
     }
     if (supports_vive_focus3_controller_) {
         enabled_extensions.push_back(XR_HTC_VIVE_FOCUS3_CONTROLLER_INTERACTION_EXTENSION_NAME);
+    }
+    if (supports_touch_pro_controller_) {
+        enabled_extensions.push_back(XR_FB_TOUCH_CONTROLLER_PRO_EXTENSION_NAME);
+    }
+    if (supports_touch_plus_controller_) {
+        enabled_extensions.push_back(XR_META_TOUCH_CONTROLLER_PLUS_EXTENSION_NAME);
     }
     set_status("initializing: create instance");
     XrInstanceCreateInfo instance_info{XR_TYPE_INSTANCE_CREATE_INFO};
@@ -474,10 +502,14 @@ bool OpenXrTracker::create_actions() {
                        &hand_paths_[1], 1, fire_action_) ||
         !create_action(XR_ACTION_TYPE_FLOAT_INPUT, "aim", "Aim down sights",
                        &hand_paths_[1], 1, aim_action_) ||
+        !create_action(XR_ACTION_TYPE_BOOLEAN_INPUT, "aim_click", "Aim down sights click",
+                       &hand_paths_[1], 1, aim_click_action_) ||
         !create_action(XR_ACTION_TYPE_FLOAT_INPUT, "left_trigger", "Left index curl",
                        &hand_paths_[0], 1, left_trigger_action_) ||
         !create_action(XR_ACTION_TYPE_FLOAT_INPUT, "left_squeeze", "Left grip curl",
                        &hand_paths_[0], 1, left_squeeze_action_) ||
+        !create_action(XR_ACTION_TYPE_BOOLEAN_INPUT, "left_squeeze_click", "Left grip click",
+                       &hand_paths_[0], 1, left_squeeze_click_action_) ||
         !create_action(XR_ACTION_TYPE_BOOLEAN_INPUT, "left_thumb_touch", "Left thumb touch",
                        &hand_paths_[0], 1, left_thumb_touch_action_) ||
         !create_action(XR_ACTION_TYPE_VECTOR2F_INPUT, "move", "Move",
@@ -533,7 +565,7 @@ bool OpenXrTracker::create_actions() {
     suggest_profile("/interaction_profiles/khr/simple_controller", {
         {hand_pose_action_, "/user/hand/left/input/aim/pose"},
         {hand_pose_action_, "/user/hand/right/input/aim/pose"},
-        {fire_action_, "/user/hand/right/input/select"},
+        {fire_action_, "/user/hand/right/input/select/click"},
         {reload_action_, "/user/hand/right/input/menu/click"},
         {interact_action_, "/user/hand/left/input/menu/click"},
         {haptic_action_, "/user/hand/left/output/haptic"},
@@ -543,9 +575,9 @@ bool OpenXrTracker::create_actions() {
         {hand_pose_action_, "/user/hand/left/input/aim/pose"},
         {hand_pose_action_, "/user/hand/right/input/aim/pose"},
         {fire_action_, "/user/hand/right/input/trigger/value"},
-        {aim_action_, "/user/hand/right/input/squeeze"},
+        {aim_action_, "/user/hand/right/input/squeeze/value"},
         {left_trigger_action_, "/user/hand/left/input/trigger/value"},
-        {left_squeeze_action_, "/user/hand/left/input/squeeze"},
+        {left_squeeze_action_, "/user/hand/left/input/squeeze/value"},
         {left_thumb_touch_action_, "/user/hand/left/input/thumbstick/touch"},
         {move_action_, "/user/hand/left/input/thumbstick"},
         {move_x_action_, "/user/hand/left/input/thumbstick/x"},
@@ -566,9 +598,9 @@ bool OpenXrTracker::create_actions() {
         {hand_pose_action_, "/user/hand/left/input/aim/pose"},
         {hand_pose_action_, "/user/hand/right/input/aim/pose"},
         {fire_action_, "/user/hand/right/input/trigger/value"},
-        {aim_action_, "/user/hand/right/input/squeeze"},
+        {aim_action_, "/user/hand/right/input/squeeze/value"},
         {left_trigger_action_, "/user/hand/left/input/trigger/value"},
-        {left_squeeze_action_, "/user/hand/left/input/squeeze"},
+        {left_squeeze_action_, "/user/hand/left/input/squeeze/value"},
         {left_thumb_touch_action_, "/user/hand/left/input/thumbstick/touch"},
         {move_action_, "/user/hand/left/input/thumbstick"},
         {move_x_action_, "/user/hand/left/input/thumbstick/x"},
@@ -589,9 +621,9 @@ bool OpenXrTracker::create_actions() {
         {hand_pose_action_, "/user/hand/left/input/aim/pose"},
         {hand_pose_action_, "/user/hand/right/input/aim/pose"},
         {fire_action_, "/user/hand/right/input/trigger/value"},
-        {aim_action_, "/user/hand/right/input/squeeze"},
+        {aim_click_action_, "/user/hand/right/input/squeeze/click"},
         {left_trigger_action_, "/user/hand/left/input/trigger/value"},
-        {left_squeeze_action_, "/user/hand/left/input/squeeze"},
+        {left_squeeze_click_action_, "/user/hand/left/input/squeeze/click"},
         {move_action_, "/user/hand/left/input/trackpad"},
         {move_x_action_, "/user/hand/left/input/trackpad/x"},
         {move_y_action_, "/user/hand/left/input/trackpad/y"},
@@ -609,9 +641,9 @@ bool OpenXrTracker::create_actions() {
         {hand_pose_action_, "/user/hand/left/input/aim/pose"},
         {hand_pose_action_, "/user/hand/right/input/aim/pose"},
         {fire_action_, "/user/hand/right/input/trigger/value"},
-        {aim_action_, "/user/hand/right/input/squeeze"},
+        {aim_click_action_, "/user/hand/right/input/squeeze/click"},
         {left_trigger_action_, "/user/hand/left/input/trigger/value"},
-        {left_squeeze_action_, "/user/hand/left/input/squeeze"},
+        {left_squeeze_click_action_, "/user/hand/left/input/squeeze/click"},
         {move_action_, "/user/hand/left/input/thumbstick"},
         {move_x_action_, "/user/hand/left/input/thumbstick/x"},
         {move_y_action_, "/user/hand/left/input/thumbstick/y"},
@@ -631,9 +663,9 @@ bool OpenXrTracker::create_actions() {
             {hand_pose_action_, "/user/hand/left/input/aim/pose"},
             {hand_pose_action_, "/user/hand/right/input/aim/pose"},
             {fire_action_, "/user/hand/right/input/trigger/value"},
-            {aim_action_, "/user/hand/right/input/squeeze"},
+            {aim_action_, "/user/hand/right/input/squeeze/value"},
             {left_trigger_action_, "/user/hand/left/input/trigger/value"},
-            {left_squeeze_action_, "/user/hand/left/input/squeeze"},
+            {left_squeeze_action_, "/user/hand/left/input/squeeze/value"},
             {left_thumb_touch_action_, "/user/hand/left/input/thumbstick/touch"},
             {move_action_, "/user/hand/left/input/thumbstick"},
             {move_x_action_, "/user/hand/left/input/thumbstick/x"},
@@ -651,6 +683,14 @@ bool OpenXrTracker::create_actions() {
             {haptic_action_, "/user/hand/right/output/haptic"},
         });
     };
+    if (supports_touch_pro_controller_) {
+        suggest_touch_style_profile(
+            "/interaction_profiles/facebook/touch_controller_pro");
+    }
+    if (supports_touch_plus_controller_) {
+        suggest_touch_style_profile(
+            "/interaction_profiles/meta/touch_controller_plus");
+    }
     if (supports_pico_controller_) {
         suggest_touch_style_profile("/interaction_profiles/bytedance/pico_neo3_controller");
         suggest_touch_style_profile("/interaction_profiles/bytedance/pico4_controller");
@@ -700,6 +740,32 @@ bool OpenXrTracker::create_actions() {
         return false;
     }
     return true;
+}
+
+std::string OpenXrTracker::current_controller_profile() const {
+    if (session_ == XR_NULL_HANDLE || hand_paths_[1] == XR_NULL_PATH) {
+        return "none";
+    }
+    XrInteractionProfileState state{XR_TYPE_INTERACTION_PROFILE_STATE};
+    if (!xr_ok(xrGetCurrentInteractionProfile(
+            session_, hand_paths_[1], &state)) ||
+        state.interactionProfile == XR_NULL_PATH) {
+        return "none";
+    }
+    std::uint32_t size{};
+    if (!xr_ok(xrPathToString(
+            instance_, state.interactionProfile, 0, &size, nullptr)) || size < 2) {
+        return "unknown";
+    }
+    std::string path(size, '\0');
+    if (!xr_ok(xrPathToString(instance_, state.interactionProfile,
+            size, &size, path.data()))) {
+        return "unknown";
+    }
+    path.resize(size - 1);
+    constexpr std::string_view prefix{"/interaction_profiles/"};
+    if (path.starts_with(prefix)) path.erase(0, prefix.size());
+    return path;
 }
 
 void OpenXrTracker::destroy_render_resources() {
@@ -774,7 +840,14 @@ bool OpenXrTracker::update_shared_render_source() {
     if (game_texture_ && frame.source_pid == active_render_frame_.source_pid &&
         frame.shared_handle == active_render_frame_.shared_handle &&
         frame.width == active_render_frame_.width && frame.height == active_render_frame_.height &&
-        frame.dxgi_format == active_render_frame_.dxgi_format) return true;
+        frame.dxgi_format == active_render_frame_.dxgi_format) {
+        active_render_frame_.frame_sequence = frame.frame_sequence;
+        active_render_frame_.presentation_orientation_valid =
+            frame.presentation_orientation_valid;
+        active_render_frame_.presentation_orientation =
+            frame.presentation_orientation;
+        return true;
+    }
 
     const bool first_frame_from_game = active_render_frame_.source_pid == 0 ||
         frame.source_pid != active_render_frame_.source_pid;
@@ -800,7 +873,15 @@ bool OpenXrTracker::update_shared_render_source() {
         (sbs_mode_ ? "tracking + depth SBS" : "tracking; video mode required");
     std::ostringstream status;
     status << tracking_status << " [" << runtime_name_ << "] dxgi="
-           << active_render_frame_.dxgi_format << "->" << swapchain_format_;
+           << active_render_frame_.dxgi_format << "->" << swapchain_format_
+           << " source=" << active_render_frame_.width << 'x'
+           << active_render_frame_.height << " eye="
+           << (active_render_frame_.width / 2) << 'x'
+           << active_render_frame_.height
+           << " roll=" << (roll_stabilization_enabled_ ? "stabilized" : "legacy")
+           << " reprojection=" <<
+              (captured_pose_reprojection_enabled_ ? "captured" : "legacy")
+           << " controller=" << current_controller_profile();
     set_status(status.str());
     return true;
 }
@@ -868,6 +949,9 @@ void OpenXrTracker::run_frame() {
                 body_yaw_transfer_degrees * degrees_to_radians);
         }
         freetrack_.publish(next.head);
+        next.presentation_orientation_valid =
+            freetrack_.presentation_orientation_valid();
+        next.presentation_orientation = freetrack_.presentation_orientation();
     }
 
     if (recenter_requested) {
@@ -968,8 +1052,11 @@ void OpenXrTracker::run_frame() {
         controller_input.fire = analog_button_pressed(
             read_float(fire_action_, hand_paths_[1]), fire_pressed_, 0.22F, 0.12F);
         fire_pressed_ = controller_input.fire;
+        const float right_grip = std::max(
+            read_float(aim_action_, hand_paths_[1]),
+            read_boolean(aim_click_action_, hand_paths_[1]) ? 1.0F : 0.0F);
         controller_input.aim = analog_button_pressed(
-            read_float(aim_action_, hand_paths_[1]), aim_pressed_, 0.38F, 0.24F);
+            right_grip, aim_pressed_, 0.38F, 0.24F);
         aim_pressed_ = controller_input.aim;
         controller_input.sprint_click = read_boolean(sprint_action_, hand_paths_[0]);
         controller_input.sprint = controller_input.sprint_click ||
@@ -986,8 +1073,10 @@ void OpenXrTracker::run_frame() {
             left_index, vault_pressed_, 0.78F, 0.45F);
         vault_pressed_ = controller_input.vault;
         controller_input.grenade = read_boolean(vault_action_, hand_paths_[1]);
-        const float left_grip = std::clamp(
-            read_float(left_squeeze_action_, hand_paths_[0]), 0.0F, 1.0F);
+        const float left_grip = std::clamp(std::max(
+            read_float(left_squeeze_action_, hand_paths_[0]),
+            read_boolean(left_squeeze_click_action_, hand_paths_[0]) ? 1.0F : 0.0F),
+            0.0F, 1.0F);
         controller_input.radial_menu = analog_button_pressed(
             left_grip, radial_pressed_, 0.55F, 0.35F);
         radial_pressed_ = controller_input.radial_menu;
@@ -1131,6 +1220,10 @@ void OpenXrTracker::run_frame() {
     const bool has_render_source = (sbs_mode_ || mono_mode_) && frame_state.shouldRender &&
         (!sbs_mode_ || sbs_ui_mode || layer_views_valid) &&
         update_shared_render_source() && game_texture_;
+    const bool use_captured_pose_projection = has_render_source &&
+        captured_pose_reprojection_enabled_ &&
+        active_render_frame_.presentation_orientation_valid &&
+        next.head.position_valid;
     const bool acquired = has_render_source && (!game_texture_mutex_ ||
         game_texture_mutex_->AcquireSync(1, 2) == S_OK);
     if (acquired) {
@@ -1170,8 +1263,36 @@ void OpenXrTracker::run_frame() {
             (void)xrReleaseSwapchainImage(eye.handle, &release);
             if (!mono_mode_ && !sbs_ui_mode) {
                 auto& projection_view = projection_views[index];
-                projection_view.pose.orientation = {0.0F, 0.0F, 0.0F, 1.0F};
-                projection_view.pose.position = layer_views[index].pose.position;
+                TrackedPose layer_eye_pose{};
+                layer_eye_pose.position_valid = true;
+                layer_eye_pose.orientation_valid = true;
+                layer_eye_pose.position = {
+                    layer_views[index].pose.position.x,
+                    layer_views[index].pose.position.y,
+                    layer_views[index].pose.position.z};
+                layer_eye_pose.orientation = {
+                    layer_views[index].pose.orientation.x,
+                    layer_views[index].pose.orientation.y,
+                    layer_views[index].pose.orientation.z,
+                    layer_views[index].pose.orientation.w};
+                if (use_captured_pose_projection) {
+                    layer_eye_pose = captured_projection_eye_pose(
+                        next.head.position,
+                        active_render_frame_.presentation_orientation,
+                        layer_eye_pose);
+                } else if (roll_stabilization_enabled_) {
+                    layer_eye_pose = compensate_view_space_roll(
+                        layer_eye_pose, freetrack_.presentation_roll());
+                }
+                projection_view.pose.orientation = {
+                    layer_eye_pose.orientation.x,
+                    layer_eye_pose.orientation.y,
+                    layer_eye_pose.orientation.z,
+                    layer_eye_pose.orientation.w};
+                projection_view.pose.position = {
+                    layer_eye_pose.position.x,
+                    layer_eye_pose.position.y,
+                    layer_eye_pose.position.z};
                 projection_view.fov = common_layer_fov;
                 projection_view.subImage.swapchain = eye.handle;
                 projection_view.subImage.imageRect.offset = {0, 0};
@@ -1218,7 +1339,8 @@ void OpenXrTracker::run_frame() {
                 submitted_layer = reinterpret_cast<const XrCompositionLayerBaseHeader*>(
                     &mono_quad);
             } else {
-                projection.space = view_space_;
+                projection.space = use_captured_pose_projection
+                    ? local_space_ : view_space_;
                 projection.viewCount = static_cast<std::uint32_t>(projection_views.size());
                 projection.views = projection_views.data();
                 submitted_layer = reinterpret_cast<const XrCompositionLayerBaseHeader*>(
@@ -1251,8 +1373,8 @@ void OpenXrTracker::shutdown() {
     if (view_space_ != XR_NULL_HANDLE) xrDestroySpace(view_space_);
     if (local_space_ != XR_NULL_HANDLE) xrDestroySpace(local_space_);
     const std::array actions{
-        hand_pose_action_, fire_action_, aim_action_, left_trigger_action_,
-        left_squeeze_action_, left_thumb_touch_action_, move_action_, move_x_action_,
+        hand_pose_action_, fire_action_, aim_action_, aim_click_action_, left_trigger_action_,
+        left_squeeze_action_, left_squeeze_click_action_, left_thumb_touch_action_, move_action_, move_x_action_,
         move_y_action_, right_move_action_, right_move_x_action_,
         right_move_y_action_, sprint_action_,
         reload_action_, fire_mode_action_, swap_weapon_action_, interact_action_,
@@ -1270,9 +1392,12 @@ void OpenXrTracker::shutdown() {
     supports_pico_ultra_controller_ = false;
     supports_vive_cosmos_controller_ = false;
     supports_vive_focus3_controller_ = false;
+    supports_touch_pro_controller_ = false;
+    supports_touch_plus_controller_ = false;
     view_space_ = local_space_ = XR_NULL_HANDLE;
-    hand_pose_action_ = fire_action_ = aim_action_ = left_trigger_action_ =
-        left_squeeze_action_ = left_thumb_touch_action_ = move_action_ = XR_NULL_HANDLE;
+    hand_pose_action_ = fire_action_ = aim_action_ = aim_click_action_ =
+        left_trigger_action_ = left_squeeze_action_ = left_squeeze_click_action_ =
+        left_thumb_touch_action_ = move_action_ = XR_NULL_HANDLE;
     move_x_action_ = move_y_action_ = XR_NULL_HANDLE;
     right_move_action_ = right_move_x_action_ = right_move_y_action_ = XR_NULL_HANDLE;
     sprint_action_ = reload_action_ = fire_mode_action_ = XR_NULL_HANDLE;

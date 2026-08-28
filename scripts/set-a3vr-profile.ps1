@@ -1,7 +1,7 @@
 param(
     [double]$FovTop = 1.03,
     [double]$FovLeft = 2.06,
-    [ValidateSet("Stereo", "Ultra", "Quality", "Balanced")]
+    [ValidateSet("Stereo", "StereoPerformance", "Ultra", "Quality", "Balanced")]
     [string]$GraphicsPreset = "Stereo",
     [ValidateSet("Keep", "SteamVR")]
     [string]$AudioRoute = "Keep",
@@ -9,7 +9,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ExpectedAspect = if ($GraphicsPreset -eq "Stereo") { 2.0 } else { 16.0 / 9.0 }
+$ExpectedAspect = if ($GraphicsPreset -like "Stereo*") { 2.0 } else { 16.0 / 9.0 }
 if ([Math]::Abs(($FovLeft / $FovTop) - $ExpectedAspect) -gt 0.001) {
     throw "A3VR FOV values must preserve the selected capture aspect ratio ($ExpectedAspect)."
 }
@@ -29,6 +29,24 @@ if ($null -eq $Profile) {
 
 $Presets = @{
     Stereo = @{
+        OutputWidth = 2560
+        OutputHeight = 1280
+        DisplayMode = 2
+        RenderWidth = 2560
+        RenderHeight = 1280
+        MultiSampleCount = 2
+        SceneComplexity = 750000
+        ShadowDistance = 60
+        ViewDistance = 2600
+        ObjectViewDistance = 1500
+        PipViewDistance = 850
+        TerrainGrid = 6.25
+        ShadowQuality = 3
+        ParticlesQuality = 2
+        CloudsQuality = 1
+        Sharpen = 0.8
+    }
+    StereoPerformance = @{
         OutputWidth = 1920
         OutputHeight = 960
         DisplayMode = 2
@@ -209,10 +227,10 @@ if (Test-Path -LiteralPath $ArmaConfig -PathType Leaf) {
         particlesQuality = [string]$Selected.ParticlesQuality
         cloudsQuality = [string]$Selected.CloudsQuality
         dynamicLightsQuality = "4"
-        pipQuality = if ($GraphicsPreset -eq "Stereo") { "3" } else { "6" }
+        pipQuality = "6"
         HDRPrecision = "16"
-        PPAA = if ($GraphicsPreset -eq "Stereo") { "4" } else { "9" }
-        ppSSAO = if ($GraphicsPreset -eq "Stereo") { "3" } else { "9" }
+        PPAA = if ($GraphicsPreset -like "Stereo*") { "8" } else { "9" }
+        ppSSAO = if ($GraphicsPreset -like "Stereo*") { "3" } else { "9" }
         ppBloom = "0"
         ppRotBlur = "0"
         ppRadialBlur = "0"

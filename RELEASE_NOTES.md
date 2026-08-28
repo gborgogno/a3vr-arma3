@@ -1,4 +1,17 @@
-# A3VR Hybrid 1.0.1
+# A3VR Hybrid v17.2 development build
+
+v17.2 is an incremental build on top of v17.1. It retains the complete v17.1
+SteamVR/OpenXR path, DXGI compatibility fallback, audio routing and head-roll
+stabilization. SteamVR support is not reintroduced or replaced in this build.
+
+The v17.2 changes are limited to captured-pose reprojection, higher-resolution
+stereo presets, typed controller grip bindings and automatic selection of the
+already-supported SteamVR runtime when SteamVR is open.
+
+The last published stable release remains 1.0.1 until v17.2 passes live headset
+validation and is explicitly approved for release.
+
+## Previous published release: 1.0.1
 
 This patch release expands the v17 OpenXR path beyond the Meta runtime and
 fixes the black headset image observed through SteamVR. It keeps the packaged

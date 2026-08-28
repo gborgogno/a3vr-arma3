@@ -2,7 +2,11 @@ param(
     [switch]$Windowed,
     [string]$GameDirectory = "",
     [switch]$UseArmaLauncher,
-    [switch]$FastStart
+    [switch]$FastStart,
+    [ValidateSet("Auto", "SteamVR", "Active")]
+    [string]$OpenXrRuntime = "Auto",
+    [ValidateSet("Stereo", "StereoPerformance")]
+    [string]$GraphicsPreset = "Stereo"
 )
 
 $ErrorActionPreference = "Stop"
@@ -28,17 +32,38 @@ $Launcher = Join-Path $GameDirectory "arma3launcher.exe"
 $ModDirectory = Split-Path -Parent $PSScriptRoot
 $Runtime = Join-Path $ModDirectory "A3VRRuntime_v31.exe"
 $RuntimeConfig = Join-Path $ModDirectory "a3vr-runtime.ini"
-$RuntimeOverride = ""
+$ConfiguredRuntime = ""
 if (Test-Path -LiteralPath $RuntimeConfig -PathType Leaf) {
-    $RuntimeOverride = [string](Get-Content -LiteralPath $RuntimeConfig |
+    $ConfiguredRuntime = [string](Get-Content -LiteralPath $RuntimeConfig |
         Where-Object { $_ -match '^\s*runtime\s*=' } |
         Select-Object -First 1)
-    if ($RuntimeOverride) {
-        $RuntimeOverride = ($RuntimeOverride -replace '^\s*runtime\s*=\s*', '').Trim()
+    if ($ConfiguredRuntime) {
+        $ConfiguredRuntime = ($ConfiguredRuntime -replace '^\s*runtime\s*=\s*', '').Trim()
     }
-    if ($RuntimeOverride -and -not (Test-Path -LiteralPath $RuntimeOverride -PathType Leaf)) {
-        throw "The configured OpenXR runtime manifest was not found: $RuntimeOverride"
+    if ($ConfiguredRuntime -and -not (Test-Path -LiteralPath $ConfiguredRuntime -PathType Leaf)) {
+        throw "The configured OpenXR runtime manifest was not found: $ConfiguredRuntime"
     }
+}
+$SteamVrManifestCandidates = @(
+    "C:\Program Files (x86)\Steam\steamapps\common\SteamVR\steamxr_win64.json",
+    "C:\Program Files\Steam\steamapps\common\SteamVR\steamxr_win64.json"
+)
+$SteamVrManifest = $SteamVrManifestCandidates | Where-Object {
+    Test-Path -LiteralPath $_ -PathType Leaf
+} | Select-Object -First 1
+$SteamVrRunning = $null -ne (Get-Process vrserver,vrmonitor -ErrorAction SilentlyContinue |
+    Select-Object -First 1)
+$UseSteamVr = $OpenXrRuntime -eq "SteamVR" -or
+    ($OpenXrRuntime -eq "Auto" -and $SteamVrRunning)
+if ($OpenXrRuntime -eq "SteamVR" -and -not $SteamVrManifest) {
+    throw "SteamVR OpenXR was requested, but steamxr_win64.json was not found."
+}
+$RuntimeOverride = if ($ConfiguredRuntime) {
+    $ConfiguredRuntime
+} elseif ($UseSteamVr) {
+    $SteamVrManifest
+} else {
+    ""
 }
 $EffectiveRuntimeManifest = $RuntimeOverride
 if (-not $EffectiveRuntimeManifest) {
@@ -98,9 +123,28 @@ if (Get-Process -Name "A3VRRuntime_v*" -ErrorAction SilentlyContinue) {
     throw "An A3VR runtime is already running. Close it before retrying."
 }
 
+if ($UseSteamVr -and -not $SteamVrRunning) {
+    $SteamVrMonitor = Join-Path (Split-Path -Parent $SteamVrManifest) `
+        "bin\win64\vrmonitor.exe"
+    if (-not (Test-Path -LiteralPath $SteamVrMonitor -PathType Leaf)) {
+        throw "SteamVR monitor was not found at $SteamVrMonitor"
+    }
+    Write-Host "Starting SteamVR before A3VR..."
+    Start-Process -FilePath $SteamVrMonitor | Out-Null
+    $SteamVrDeadline = [DateTime]::UtcNow.AddSeconds(30)
+    do {
+        Start-Sleep -Milliseconds 250
+        $SteamVrRunning = $null -ne (Get-Process vrserver -ErrorAction SilentlyContinue)
+    } until ($SteamVrRunning -or [DateTime]::UtcNow -ge $SteamVrDeadline)
+    if (-not $SteamVrRunning) {
+        throw "SteamVR did not become ready within 30 seconds."
+    }
+}
+Write-Host "A3VR OpenXR runtime: $EffectiveRuntimeManifest"
+
 $ProfileTuner = Join-Path $PSScriptRoot "set-a3vr-profile.ps1"
 if (Test-Path -LiteralPath $ProfileTuner) {
-    & $ProfileTuner -GraphicsPreset Stereo -AudioRoute $AudioRoute `
+    & $ProfileTuner -GraphicsPreset $GraphicsPreset -AudioRoute $AudioRoute `
         -SteamVrManifest $EffectiveRuntimeManifest
 }
 

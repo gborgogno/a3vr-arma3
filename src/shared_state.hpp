@@ -18,6 +18,8 @@ struct SharedRenderFrame {
     std::uint32_t dxgi_format{};
     std::uint32_t capture_state{}; // 1 hook, 2 texture error, 3 frames flowing
     std::int32_t last_hresult{};
+    bool presentation_orientation_valid{};
+    Quat presentation_orientation{};
 };
 
 class SharedState final {
@@ -32,6 +34,7 @@ public:
     void close();
     void publish(const TrackingSnapshot& snapshot, const std::string& status);
     bool read(TrackingSnapshot& snapshot, std::string& status);
+    bool read_latest_tracking(TrackingSnapshot& snapshot);
     bool publish_render(const SharedRenderFrame& frame);
     bool read_render(SharedRenderFrame& frame);
     bool publish_aim_feedback(const AimFeedback& feedback);

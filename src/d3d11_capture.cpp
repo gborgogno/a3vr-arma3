@@ -280,6 +280,13 @@ HRESULT __stdcall hooked_present(IDXGISwapChain* swapchain, UINT sync_interval, 
                         ++render_frame.frame_sequence;
                         render_frame.capture_state = 3;
                         render_frame.last_hresult = S_OK;
+                        TrackingSnapshot tracking{};
+                        if (render_state.read_latest_tracking(tracking)) {
+                            render_frame.presentation_orientation_valid =
+                                tracking.presentation_orientation_valid;
+                            render_frame.presentation_orientation =
+                                tracking.presentation_orientation;
+                        }
                         captured_area = candidate_area;
                         last_selected_present_tick = now;
                         render_state.publish_render(render_frame);

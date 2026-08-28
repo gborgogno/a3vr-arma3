@@ -2,6 +2,8 @@ param(
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Release",
     [string]$BuildDirectory = "",
+    [ValidatePattern('^v[0-9]+(?:\.[0-9]+)*$')]
+    [string]$VersionDirectory = "",
     [string]$AddonBuilder = "C:\Program Files (x86)\Steam\steamapps\common\Arma 3 Tools\AddonBuilder\AddonBuilder.exe"
 )
 
@@ -12,7 +14,12 @@ if ([string]::IsNullOrWhiteSpace($BuildDirectory)) {
 } elseif (-not [System.IO.Path]::IsPathRooted($BuildDirectory)) {
     $BuildDirectory = Join-Path $ProjectRoot $BuildDirectory
 }
-$ModDirectory = Join-Path $ProjectRoot "dist\@A3VR_Hybrid"
+$OutputRoot = if ([string]::IsNullOrWhiteSpace($VersionDirectory)) {
+    Join-Path $ProjectRoot "dist"
+} else {
+    Join-Path $ProjectRoot ("versions\" + $VersionDirectory)
+}
+$ModDirectory = Join-Path $OutputRoot "@A3VR_Hybrid"
 $AddonDestination = Join-Path $ModDirectory "addons"
 $NativeDll = Join-Path $BuildDirectory "$Configuration\A3VRHybridCore_x64.dll"
 $ServerExe = Join-Path $BuildDirectory "$Configuration\A3VRRuntime_v31.exe"
@@ -118,6 +125,8 @@ $PackagedScripts = Join-Path $ModDirectory "scripts"
 New-Item -ItemType Directory -Force -Path $PackagedScripts | Out-Null
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "START_A3VR.cmd") -Destination $ModDirectory
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "START_A3VR_LAUNCHER.cmd") -Destination $ModDirectory
+Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "START_A3VR_PERFORMANCE.cmd") -Destination $ModDirectory
+Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "START_A3VR_STEAMVR.cmd") -Destination $ModDirectory
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "scripts\launch-a3vr.ps1") -Destination $PackagedScripts
 Copy-Item -Force -LiteralPath (Join-Path $ProjectRoot "scripts\set-a3vr-profile.ps1") -Destination $PackagedScripts
 

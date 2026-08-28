@@ -90,6 +90,41 @@ int main() {
     assert(approximately_equal(over_vertical.yaw, 0.0F));
     assert(approximately_equal(over_vertical.pitch, 0.87266463F));
 
+    const float roll_angle = 0.35F;
+    const a3vr::Quat rolled_head{
+        0.0F, 0.0F, std::sin(roll_angle * 0.5F),
+        std::cos(roll_angle * 0.5F)};
+    assert(approximately_equal(
+        a3vr::head_roll_radians(rolled_head), roll_angle));
+    a3vr::TrackedPose eye_pose{};
+    eye_pose.position_valid = true;
+    eye_pose.orientation_valid = true;
+    eye_pose.position = {0.032F, 0.0F, 0.0F};
+    const auto roll_compensated = a3vr::compensate_view_space_roll(
+        eye_pose, roll_angle);
+    assert(approximately_equal(
+        a3vr::head_roll_radians(roll_compensated.orientation), -roll_angle));
+    assert(roll_compensated.position.y < 0.0F);
+    assert(approximately_equal(
+        std::hypot(roll_compensated.position.x,
+                   roll_compensated.position.y), 0.032F));
+
+    a3vr::TrackedPose view_space_eye{};
+    view_space_eye.position_valid = true;
+    view_space_eye.orientation_valid = true;
+    view_space_eye.position = {0.032F, 0.0F, 0.0F};
+    const float captured_yaw = 0.5F;
+    const a3vr::Quat captured_orientation{
+        0.0F, std::sin(captured_yaw * 0.5F), 0.0F,
+        std::cos(captured_yaw * 0.5F)};
+    const auto captured_eye = a3vr::captured_projection_eye_pose(
+        {1.0F, 1.7F, -2.0F}, captured_orientation, view_space_eye);
+    assert(captured_eye.position.x > 1.0F);
+    assert(captured_eye.position.z < -2.0F);
+    assert(approximately_equal(
+        std::hypot(captured_eye.position.x - 1.0F,
+                   captured_eye.position.z + 2.0F), 0.032F));
+
     a3vr::TrackedPose controller{};
     controller.orientation_valid = true;
     controller.orientation = {0.0F, std::sin(half_angle), 0.0F, std::cos(half_angle)};

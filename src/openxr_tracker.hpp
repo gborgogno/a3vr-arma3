@@ -42,6 +42,7 @@ private:
     void shutdown();
     bool create_d3d_device(const LUID& adapter_luid, D3D_FEATURE_LEVEL minimum_level);
     bool create_actions();
+    [[nodiscard]] std::string current_controller_profile() const;
     bool update_shared_render_source();
     bool create_render_swapchains(const SharedRenderFrame& frame);
     void destroy_render_resources();
@@ -62,6 +63,8 @@ private:
     bool supports_pico_ultra_controller_{false};
     bool supports_vive_cosmos_controller_{false};
     bool supports_vive_focus3_controller_{false};
+    bool supports_touch_pro_controller_{false};
+    bool supports_touch_plus_controller_{false};
 
     XrInstance instance_{XR_NULL_HANDLE};
     XrSystemId system_id_{XR_NULL_SYSTEM_ID};
@@ -77,13 +80,17 @@ private:
     float mono_screen_height_{9.84375F};
     float mono_screen_distance_{5.0F};
     float ui_screen_width_{5.0F};
+    bool roll_stabilization_enabled_{true};
+    bool captured_pose_reprojection_enabled_{true};
 
     XrActionSet action_set_{XR_NULL_HANDLE};
     XrAction hand_pose_action_{XR_NULL_HANDLE};
     XrAction fire_action_{XR_NULL_HANDLE};
     XrAction aim_action_{XR_NULL_HANDLE};
+    XrAction aim_click_action_{XR_NULL_HANDLE};
     XrAction left_trigger_action_{XR_NULL_HANDLE};
     XrAction left_squeeze_action_{XR_NULL_HANDLE};
+    XrAction left_squeeze_click_action_{XR_NULL_HANDLE};
     XrAction left_thumb_touch_action_{XR_NULL_HANDLE};
     XrAction move_action_{XR_NULL_HANDLE};
     XrAction move_x_action_{XR_NULL_HANDLE};

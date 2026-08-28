@@ -128,6 +128,52 @@ FreeTrackPose apply_body_recess(FreeTrackPose pose, const float forward_mm) noex
     return pose;
 }
 
+float head_roll_radians(const Quat& orientation) noexcept {
+    const Vec3 forward = normalized(rotate(
+        normalized_quaternion(orientation), {0.0F, 0.0F, -1.0F}));
+    const Vec3 physical_right = normalized(rotate(
+        normalized_quaternion(orientation), {1.0F, 0.0F, 0.0F}));
+    // Build a gravity-level basis around the current forward ray. This keeps
+    // yaw and pitch out of the roll measurement instead of relying on an Euler
+    // decomposition whose result changes with rotation order.
+    Vec3 level_right = normalized({-forward.z, 0.0F, forward.x});
+    if (dot(level_right, level_right) < 0.5F) return 0.0F;
+    const Vec3 level_up = normalized({
+        level_right.y * forward.z - level_right.z * forward.y,
+        level_right.z * forward.x - level_right.x * forward.z,
+        level_right.x * forward.y - level_right.y * forward.x,
+    });
+    return std::atan2(dot(physical_right, level_up),
+                      dot(physical_right, level_right));
+}
+
+TrackedPose compensate_view_space_roll(
+    const TrackedPose& eye_pose, const float head_roll) noexcept {
+    if (!std::isfinite(head_roll)) return eye_pose;
+    const float half = -0.5F * head_roll;
+    const Quat inverse_roll{0.0F, 0.0F, std::sin(half), std::cos(half)};
+    TrackedPose corrected = eye_pose;
+    corrected.position = rotate(inverse_roll, eye_pose.position);
+    corrected.orientation = normalized_quaternion(
+        multiply(inverse_roll, eye_pose.orientation));
+    return corrected;
+}
+
+TrackedPose captured_projection_eye_pose(
+    const Vec3 current_head_position, const Quat captured_orientation,
+    const TrackedPose& eye_in_view_space) noexcept {
+    const Quat orientation = normalized_quaternion(captured_orientation);
+    const Vec3 eye_offset = rotate(orientation, eye_in_view_space.position);
+    TrackedPose corrected = eye_in_view_space;
+    corrected.position = {
+        current_head_position.x + eye_offset.x,
+        current_head_position.y + eye_offset.y,
+        current_head_position.z + eye_offset.z};
+    corrected.orientation = normalized_quaternion(
+        multiply(orientation, eye_in_view_space.orientation));
+    return corrected;
+}
+
 FreeTrackOutput::FreeTrackOutput() {
     char value[32]{};
     const DWORD size = GetEnvironmentVariableA(
@@ -178,11 +224,17 @@ void FreeTrackOutput::close() {
     mutex_ = nullptr;
     origin_valid_ = false;
     origin_ = {};
+    presentation_roll_ = 0.0F;
+    presentation_orientation_ = {};
+    presentation_orientation_valid_ = false;
 }
 
 void FreeTrackOutput::recenter() noexcept {
     origin_valid_ = false;
     origin_ = {};
+    presentation_roll_ = 0.0F;
+    presentation_orientation_ = {};
+    presentation_orientation_valid_ = false;
 }
 
 void FreeTrackOutput::transfer_body_yaw(
@@ -208,9 +260,22 @@ void FreeTrackOutput::publish(const TrackedPose& pose) {
         origin_ = pose;
         origin_valid_ = true;
     }
+    const TrackedPose relative_pose = relative_to(pose, origin_);
+    presentation_roll_ = head_roll_radians(relative_pose.orientation);
     const bool in_vehicle = (game_context() & game_context_vehicle) != 0U;
+    const FreeTrackPose rotation = to_freetrack_pose(
+        relative_pose, rotation_gain_);
+    const float half_yaw = rotation.yaw * 0.5F;
+    const float half_pitch = rotation.pitch * 0.5F;
+    const Quat yaw_orientation{
+        0.0F, std::sin(half_yaw), 0.0F, std::cos(half_yaw)};
+    const Quat pitch_orientation{
+        std::sin(half_pitch), 0.0F, 0.0F, std::cos(half_pitch)};
+    presentation_orientation_ = normalized_quaternion(multiply(
+        origin_.orientation, multiply(yaw_orientation, pitch_orientation)));
+    presentation_orientation_valid_ = true;
     const FreeTrackPose converted = apply_body_recess(
-        to_freetrack_pose(relative_to(pose, origin_), rotation_gain_),
+        rotation,
         in_vehicle ? 0.0F : body_recess_mm_);
     auto& output = data_->data;
     output.yaw = output.raw_yaw = converted.yaw;

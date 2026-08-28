@@ -49,6 +49,11 @@ A3VRHybrid_stereoFov = 1.50;
 A3VRHybrid_stereoFovLog = -1;
 A3VRHybrid_stereoHalfIpd = 0.032;
 A3VRHybrid_stereoIpdLog = -1;
+A3VRHybrid_stereoTextureSize = profileNamespace getVariable [
+    "A3VRHybrid_rttResolution", 2048];
+if !(A3VRHybrid_stereoTextureSize in [1024, 2048]) then {
+    A3VRHybrid_stereoTextureSize = 2048;
+};
 
 private _deadline = diag_tickTime + 30;
 waitUntil {
@@ -147,8 +152,9 @@ A3VRHybrid_fnc_stereoEnsure = {
         "A3VRHybrid_stereoLeftControl", controlNull];
     if (isNull _leftControl) then {
         _leftControl = _display ctrlCreate ["RscPicture", -1];
-        _leftControl ctrlSetText
-            "#(argb,1024,1024,1)r2t(a3vrleft,1.0)";
+        _leftControl ctrlSetText format [
+            "#(argb,%1,%1,1)r2t(a3vrleft,1.0)",
+            A3VRHybrid_stereoTextureSize];
         _leftControl ctrlSetTextColor [1, 1, 1, 1];
         uiNamespace setVariable [
             "A3VRHybrid_stereoLeftControl", _leftControl];
@@ -157,8 +163,9 @@ A3VRHybrid_fnc_stereoEnsure = {
         "A3VRHybrid_stereoRightControl", controlNull];
     if (isNull _rightControl) then {
         _rightControl = _display ctrlCreate ["RscPicture", -1];
-        _rightControl ctrlSetText
-            "#(argb,1024,1024,1)r2t(a3vrright,1.0)";
+        _rightControl ctrlSetText format [
+            "#(argb,%1,%1,1)r2t(a3vrright,1.0)",
+            A3VRHybrid_stereoTextureSize];
         _rightControl ctrlSetTextColor [1, 1, 1, 1];
         uiNamespace setVariable [
             "A3VRHybrid_stereoRightControl", _rightControl];
@@ -207,7 +214,9 @@ A3VRHybrid_stereoEachFrame = addMissionEventHandler ["EachFrame", {
         A3VRHybrid_stereoRightCamera cameraEffect [
             "INTERNAL", "BACK", "a3vrright"];
         A3VRHybrid_stereoRendering = true;
-        diag_log "[A3VR] Stereo RTT source active: 1024x1024 per eye";
+        diag_log format [
+            "[A3VR] Stereo RTT source active: %1x%1 per eye",
+            A3VRHybrid_stereoTextureSize];
     };
 
     private _center = eyePos player;

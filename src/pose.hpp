@@ -68,6 +68,8 @@ struct TrackingSnapshot {
     std::int32_t session_state{};
     bool session_running{};
     TrackedPose head{};
+    bool presentation_orientation_valid{};
+    Quat presentation_orientation{};
     TrackedPose left_hand{};
     TrackedPose right_hand{};
     std::array<EyeView, 2> eyes{};
