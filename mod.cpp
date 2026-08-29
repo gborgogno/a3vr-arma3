@@ -6,4 +6,4 @@ tooltip = "A3VR Hybrid — Experimental OpenXR bridge";
 tooltipOwned = "A3VR Hybrid — Experimental OpenXR bridge";
 overview = "Experimental OpenXR presentation, FreeTrack head tracking, motion-controller input and controller-absolute proxy weapons for Arma 3. PiP optics and independent hands are not included.";
 author = "A3VR contributors";
-version = "17.14";
+version = "1.0.2";

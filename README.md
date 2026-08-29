@@ -1,6 +1,6 @@
 # A3VR Hybrid
 
-**Current release: `17.14.0`**
+**Current release: `1.0.2`**
 
 A3VR Hybrid is an experimental OpenXR bridge for 64-bit Arma 3. It presents
 Arma's D3D11 output in a headset, publishes headset motion through Arma's
@@ -77,7 +77,7 @@ experimental unless explicitly listed in a release test report.
 
 ## Install and start
 
-1. Download `A3VR-Hybrid-v17.14.0.zip` and its adjacent `.sha256` file from the
+1. Download `A3VR-Hybrid-v1.0.2.zip` and its adjacent `.sha256` file from the
    GitHub release.
 2. Verify the ZIP hash, then extract the complete `@A3VR_Hybrid` directory.
 3. Start the headset and activate the intended Windows OpenXR runtime.

@@ -1,4 +1,4 @@
-# A3VR Hybrid 17.14.0
+# A3VR Hybrid 1.0.2
 
 This release stabilizes the stereo presentation path used by the
 controller-absolute VR proxy. It keeps the runtime-neutral OpenXR selection
