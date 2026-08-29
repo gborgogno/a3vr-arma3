@@ -42,7 +42,7 @@ bool SharedState::create() {
     if (mapping == nullptr || !map(mapping)) return false;
     std::memset(block_, 0, sizeof(Block));
     block_->magic_value = magic;
-    block_->version = 13;
+    block_->version = 14;
     block_->server_pid = GetCurrentProcessId();
     strcpy_s(block_->status, "starting");
     return true;
@@ -52,7 +52,7 @@ bool SharedState::connect() {
     if (block_ != nullptr) return true;
     HANDLE mapping = OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, mapping_name);
     if (mapping == nullptr || !map(mapping)) return false;
-    if (block_->magic_value != magic || block_->version != 13) {
+    if (block_->magic_value != magic || block_->version != 14) {
         close();
         return false;
     }
@@ -81,6 +81,13 @@ bool SharedState::read(TrackingSnapshot& snapshot, std::string& status) {
     if (!connect() || WaitForSingleObject(mutex_, 5) != WAIT_OBJECT_0) return false;
     snapshot = block_->snapshot;
     status = block_->status;
+    ReleaseMutex(mutex_);
+    return true;
+}
+
+bool SharedState::read_latest_tracking(TrackingSnapshot& snapshot) {
+    if (!connect() || WaitForSingleObject(mutex_, 0) != WAIT_OBJECT_0) return false;
+    snapshot = block_->snapshot;
     ReleaseMutex(mutex_);
     return true;
 }

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(A3VR VERSION 1.0.1 LANGUAGES C CXX)
+project(A3VR VERSION 17.14.0 LANGUAGES C CXX)
 
 if(NOT WIN32 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
     message(FATAL_ERROR "A3VR currently requires 64-bit Windows.")

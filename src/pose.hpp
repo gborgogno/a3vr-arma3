@@ -62,6 +62,12 @@ struct EyeView {
     std::array<float, 4> fov{}; // left, right, up, down angles in radians
 };
 
+inline bool stereo_eye_pair_valid(
+    const std::array<TrackedPose, 2>& eyes) noexcept {
+    return eyes[0].position_valid && eyes[0].orientation_valid &&
+           eyes[1].position_valid && eyes[1].orientation_valid;
+}
+
 struct TrackingSnapshot {
     std::uint64_t sequence{};
     std::int64_t predicted_display_time{};

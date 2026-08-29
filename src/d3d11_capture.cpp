@@ -280,6 +280,22 @@ HRESULT __stdcall hooked_present(IDXGISwapChain* swapchain, UINT sync_interval, 
                         ++render_frame.frame_sequence;
                         render_frame.capture_state = 3;
                         render_frame.last_hresult = S_OK;
+                        // Stamp the completed Arma backbuffer with the exact
+                        // OpenXR eye poses most recently consumed by the game.
+                        // The runtime can then submit this older image from its
+                        // capture pose and let the active OpenXR compositor
+                        // reproject it to the current headset pose.
+                        render_frame.captured_tracking_sequence = 0;
+                        render_frame.captured_eyes = {};
+                        TrackingSnapshot tracking{};
+                        if (render_state.read_latest_tracking(tracking)) {
+                            render_frame.captured_tracking_sequence =
+                                tracking.sequence;
+                            render_frame.captured_eyes = {
+                                tracking.eyes[0].pose,
+                                tracking.eyes[1].pose,
+                            };
+                        }
                         captured_area = candidate_area;
                         last_selected_present_tick = now;
                         render_state.publish_render(render_frame);

@@ -15,6 +15,14 @@ bool approximately_equal(const float a, const float b) { return std::abs(a - b) 
 }
 
 int main() {
+    std::array<a3vr::TrackedPose, 2> captured_eyes{};
+    assert(!a3vr::stereo_eye_pair_valid(captured_eyes));
+    for (auto& eye : captured_eyes) {
+        eye.position_valid = true;
+        eye.orientation_valid = true;
+    }
+    assert(a3vr::stereo_eye_pair_valid(captured_eyes));
+
     const std::int64_t steamvr_formats[]{
         DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
         DXGI_FORMAT_B8G8R8A8_UNORM_SRGB,

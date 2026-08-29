@@ -774,7 +774,15 @@ bool OpenXrTracker::update_shared_render_source() {
     if (game_texture_ && frame.source_pid == active_render_frame_.source_pid &&
         frame.shared_handle == active_render_frame_.shared_handle &&
         frame.width == active_render_frame_.width && frame.height == active_render_frame_.height &&
-        frame.dxgi_format == active_render_frame_.dxgi_format) return true;
+        frame.dxgi_format == active_render_frame_.dxgi_format) {
+        // The shared texture is stable across Presents, but its pose stamp is
+        // not. Keep the compositor paired with the frame that was just copied.
+        active_render_frame_.frame_sequence = frame.frame_sequence;
+        active_render_frame_.captured_tracking_sequence =
+            frame.captured_tracking_sequence;
+        active_render_frame_.captured_eyes = frame.captured_eyes;
+        return true;
+    }
 
     const bool first_frame_from_game = active_render_frame_.source_pid == 0 ||
         frame.source_pid != active_render_frame_.source_pid;
@@ -1131,6 +1139,12 @@ void OpenXrTracker::run_frame() {
     const bool has_render_source = (sbs_mode_ || mono_mode_) && frame_state.shouldRender &&
         (!sbs_mode_ || sbs_ui_mode || layer_views_valid) &&
         update_shared_render_source() && game_texture_;
+    // Restrict captured-pose reprojection to the controller-absolute proxy.
+    // That camera consumes the same full OpenXR head pose stamped at Present.
+    // Native/vehicle cameras retain the proven view-space path because Arma's
+    // FreeTrack gain can intentionally differ from physical head rotation.
+    const bool use_captured_eye_poses = has_render_source && proxy_mode &&
+        stereo_eye_pair_valid(active_render_frame_.captured_eyes);
     const bool acquired = has_render_source && (!game_texture_mutex_ ||
         game_texture_mutex_->AcquireSync(1, 2) == S_OK);
     if (acquired) {
@@ -1170,8 +1184,21 @@ void OpenXrTracker::run_frame() {
             (void)xrReleaseSwapchainImage(eye.handle, &release);
             if (!mono_mode_ && !sbs_ui_mode) {
                 auto& projection_view = projection_views[index];
-                projection_view.pose.orientation = {0.0F, 0.0F, 0.0F, 1.0F};
-                projection_view.pose.position = layer_views[index].pose.position;
+                if (use_captured_eye_poses) {
+                    const TrackedPose& captured =
+                        active_render_frame_.captured_eyes[index];
+                    projection_view.pose.orientation = {
+                        captured.orientation.x, captured.orientation.y,
+                        captured.orientation.z, captured.orientation.w};
+                    projection_view.pose.position = {
+                        captured.position.x, captured.position.y,
+                        captured.position.z};
+                } else {
+                    projection_view.pose.orientation =
+                        {0.0F, 0.0F, 0.0F, 1.0F};
+                    projection_view.pose.position =
+                        layer_views[index].pose.position;
+                }
                 projection_view.fov = common_layer_fov;
                 projection_view.subImage.swapchain = eye.handle;
                 projection_view.subImage.imageRect.offset = {0, 0};
@@ -1218,7 +1245,8 @@ void OpenXrTracker::run_frame() {
                 submitted_layer = reinterpret_cast<const XrCompositionLayerBaseHeader*>(
                     &mono_quad);
             } else {
-                projection.space = view_space_;
+                projection.space = use_captured_eye_poses
+                    ? local_space_ : view_space_;
                 projection.viewCount = static_cast<std::uint32_t>(projection_views.size());
                 projection.views = projection_views.data();
                 submitted_layer = reinterpret_cast<const XrCompositionLayerBaseHeader*>(
